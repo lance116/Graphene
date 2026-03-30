@@ -55,6 +55,8 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<"trending" | "recent" | "stars">("trending");
   const [search, setSearch] = useState("");
+  const [addingPaper, setAddingPaper] = useState<string | null>(null);
+  const [addedPapers, setAddedPapers] = useState<Set<string>>(new Set());
   const [searchDebounced, setSearchDebounced] = useState("");
 
   useEffect(() => {
@@ -167,6 +169,27 @@ export default function ExplorePage() {
             : p
         )
       );
+    }
+  };
+
+  const handleAddToLibrary = async (url: string, paperId: string) => {
+    if (!user || addingPaper || addedPapers.has(paperId)) return;
+    setAddingPaper(paperId);
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/papers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ url }),
+      });
+      if (res.ok) {
+        setAddedPapers((prev) => new Set(prev).add(paperId));
+      }
+    } catch {} finally {
+      setAddingPaper(null);
     }
   };
 
@@ -334,6 +357,19 @@ export default function ExplorePage() {
                         >
                           <ExternalLink size={10} />
                         </a>
+                        {user && (
+                          <button
+                            onClick={() => handleAddToLibrary(rec.source_url, rec.id)}
+                            disabled={addingPaper === rec.id || addedPapers.has(rec.id)}
+                            className={`text-[9px] tracking-wider uppercase px-2 py-0.5 border transition-colors ${
+                              addedPapers.has(rec.id)
+                                ? "border-accent/50 text-accent"
+                                : "border-border text-text-dim hover:border-accent hover:text-accent"
+                            }`}
+                          >
+                            {addedPapers.has(rec.id) ? "Added" : addingPaper === rec.id ? "..." : "+ Add"}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -439,6 +475,19 @@ export default function ExplorePage() {
                           >
                             <ExternalLink size={10} />
                           </a>
+                        )}
+                        {user && (
+                          <button
+                            onClick={(e) => { e.preventDefault(); handleAddToLibrary(paper.source_url || `https://arxiv.org/abs/${paper.id}`, paper.id); }}
+                            disabled={addingPaper === paper.id || addedPapers.has(paper.id)}
+                            className={`text-[9px] tracking-wider uppercase px-2 py-0.5 border transition-colors ${
+                              addedPapers.has(paper.id)
+                                ? "border-accent/50 text-accent"
+                                : "border-border text-text-dim hover:border-accent hover:text-accent"
+                            }`}
+                          >
+                            {addedPapers.has(paper.id) ? "Added" : addingPaper === paper.id ? "..." : "+ Add"}
+                          </button>
                         )}
                       </div>
                     </Link>
