@@ -169,8 +169,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Download and upload PDF to Supabase Storage
+    // Download and upload PDF to Supabase Storage, extract title
     let storedPdfUrl = isPdf ? url : null;
+    let pdfTitle = "";
     if (isPdf) {
       try {
         const pdfRes = await fetch(url);
@@ -183,18 +184,40 @@ export async function POST(req: NextRequest) {
           });
           const { data: publicUrl } = supabase.storage.from("papers").getPublicUrl(fileName);
           storedPdfUrl = publicUrl.publicUrl;
+
+          // Extract title from PDF text (first substantial line is usually the title)
+          try {
+            const pdfParse = await import("pdf-parse");
+            const parse = typeof pdfParse === "function" ? pdfParse : (pdfParse as { default: Function }).default;
+            const pdfData = await (parse as (buf: Buffer) => Promise<{ text: string; info?: { Title?: string } }>)(buffer);
+            // Try PDF metadata title first
+            if (pdfData.info?.Title && pdfData.info.Title.length > 5 && !/untitled/i.test(pdfData.info.Title)) {
+              pdfTitle = pdfData.info.Title;
+            } else {
+              // Fall back to first substantial line of text
+              const lines = pdfData.text.split("\n").map((l) => l.trim()).filter((l) => l.length > 10);
+              if (lines.length > 0) {
+                // Title is usually the first long line, skip very short ones
+                pdfTitle = lines[0].slice(0, 200);
+              }
+            }
+          } catch (e) {
+            console.error("PDF title extraction failed:", e);
+          }
         }
       } catch (e) {
         console.error("PDF upload failed:", e);
       }
     }
 
+    const fallbackTitle = pdfTitle || new URL(url).pathname.split("/").pop()?.replace(/\.pdf$/i, "") || "Untitled paper";
+
     // Create shared paper
     const { data: inserted, error: insertError } = await supabase
       .from("papers")
       .insert({
         id,
-        title: url.split("/").pop() || url,
+        title: fallbackTitle,
         authors: [],
         source_url: url,
         pdf_url: storedPdfUrl,
