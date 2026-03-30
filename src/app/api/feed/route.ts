@@ -37,16 +37,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ papers: [] });
     }
 
-    // Sort by stars (then interesting, then recency)
-    const interestingOf = (p: any) => p.bs_score?.interesting ?? 0;
-    allPublic.sort((a, b) => {
-      const starDiff = (countMap[b.id] || 0) - (countMap[a.id] || 0);
-      if (starDiff !== 0) return starDiff;
-      if (sort === "trending") {
-        return new Date(b.added_at).getTime() - new Date(a.added_at).getTime();
-      }
-      return interestingOf(b) - interestingOf(a);
-    });
+    if (sort === "trending") {
+      // Trending: stars x 5 + recency decay over 14 days
+      const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      allPublic.sort((a, b) => {
+        const scoreA = (countMap[a.id] || 0) * 5 + Math.max(0, 1 - (now - new Date(a.added_at).getTime()) / FOURTEEN_DAYS) * 10;
+        const scoreB = (countMap[b.id] || 0) * 5 + Math.max(0, 1 - (now - new Date(b.added_at).getTime()) / FOURTEEN_DAYS) * 10;
+        return scoreB - scoreA;
+      });
+    } else {
+      // Stars: sort by star count, then interesting score
+      const interestingOf = (p: any) => p.bs_score?.interesting ?? 0;
+      allPublic.sort((a, b) => {
+        const starDiff = (countMap[b.id] || 0) - (countMap[a.id] || 0);
+        if (starDiff !== 0) return starDiff;
+        return interestingOf(b) - interestingOf(a);
+      });
+    }
 
     // Paginate
     const page = allPublic.slice(offset, offset + limit);

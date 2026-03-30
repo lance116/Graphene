@@ -19,6 +19,7 @@ import {
   Lock,
   Award,
   Trash2,
+  Sparkles,
 } from "lucide-react";
 
 export default function PaperDetail({
@@ -29,6 +30,7 @@ export default function PaperDetail({
   onUpdateNotes,
   onTogglePublic,
   onDelete,
+  onEnrich,
   getToken,
   isVerified,
 }: {
@@ -39,6 +41,7 @@ export default function PaperDetail({
   onUpdateNotes: (notes: string) => void;
   onTogglePublic?: () => void;
   onDelete?: () => void;
+  onEnrich?: () => void;
   getToken?: () => Promise<string | null>;
   isVerified?: boolean;
 }) {
@@ -258,6 +261,15 @@ export default function PaperDetail({
             >
               {(paper as any).is_public ? <Globe size={10} /> : <Lock size={10} />}
               {(paper as any).is_public ? "Public" : "Private"}
+            </button>
+          )}
+          {onEnrich && !paper.summary && (
+            <button
+              onClick={onEnrich}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase border border-accent/50 text-accent hover:bg-accent hover:text-bg whitespace-nowrap transition-colors"
+            >
+              <Sparkles size={10} />
+              AI Review
             </button>
           )}
           {isVerified && (

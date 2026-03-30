@@ -128,25 +128,46 @@ export default function ExplorePage() {
     const paper = papers.find((p) => p.id === paperId);
     if (!paper) return;
 
-    const token = await getToken();
-    const res = await fetch(
-      `/api/papers/${encodeURIComponent(paperId)}/star`,
-      {
-        method: paper.starred ? "DELETE" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      }
-    );
-    const data = await res.json();
+    // Optimistic update
     setPapers((prev) =>
       prev.map((p) =>
         p.id === paperId
-          ? { ...p, starred: data.starred, star_count: data.star_count }
+          ? { ...p, starred: !p.starred, star_count: p.star_count + (p.starred ? -1 : 1) }
           : p
       )
     );
+
+    const token = await getToken();
+    try {
+      const res = await fetch(
+        `/api/papers/${encodeURIComponent(paperId)}/star`,
+        {
+          method: paper.starred ? "DELETE" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        }
+      );
+      const data = await res.json();
+      // Reconcile with server state
+      setPapers((prev) =>
+        prev.map((p) =>
+          p.id === paperId
+            ? { ...p, starred: data.starred, star_count: data.star_count }
+            : p
+        )
+      );
+    } catch {
+      // Revert on error
+      setPapers((prev) =>
+        prev.map((p) =>
+          p.id === paperId
+            ? { ...p, starred: paper.starred, star_count: paper.star_count }
+            : p
+        )
+      );
+    }
   };
 
   const filteredPapers = searchDebounced

@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import Anthropic from "@anthropic-ai/sdk";
 import { getUser } from "@/lib/auth";
 import { checkTokenLimit, trackTokens } from "@/lib/tokens";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 export const maxDuration = 60;
 
@@ -22,6 +23,13 @@ export async function POST(
   const withinLimit = await checkTokenLimit(user.id);
   if (!withinLimit) {
     return new Response(JSON.stringify({ error: "Daily token limit reached. Try again tomorrow." }), {
+      status: 429,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (!checkRateLimit(user.id)) {
+    return new Response(JSON.stringify({ error: "Too many requests. Please wait a moment." }), {
       status: 429,
       headers: { "Content-Type": "application/json" },
     });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, use } from "react";
-import { Star, ArrowLeft, BookOpen, Calendar, Pencil, Camera, FileText } from "lucide-react";
+import { Star, ArrowLeft, BookOpen, Calendar, Pencil, Camera, FileText, Share2 } from "lucide-react";
 import { humanCategory } from "@/lib/categories";
 import { decodeEntities } from "@/lib/entities";
 import { useAuth } from "@/components/AuthProvider";
@@ -276,6 +276,20 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                         <Pencil size={12} />
                       </button>
                     )}
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.href);
+                        // Brief visual feedback
+                        const btn = document.activeElement as HTMLButtonElement;
+                        const orig = btn.textContent;
+                        btn.textContent = "Copied!";
+                        setTimeout(() => { btn.textContent = orig; }, 1500);
+                      }}
+                      className="ml-1 text-text-dim hover:text-accent transition-colors text-[10px] tracking-wider uppercase flex items-center gap-1"
+                      title="Share profile"
+                    >
+                      <Share2 size={12} />
+                    </button>
                   </div>
                   <p className="text-[10px] text-text-dim tracking-wider">@{profile.username}</p>
                   {profile.bio && (

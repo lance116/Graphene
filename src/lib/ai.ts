@@ -27,7 +27,8 @@ Abstract: ${abstract}`,
 export async function chatAboutPaper(
   paper: Record<string, unknown>,
   history: { role: "user" | "assistant"; content: string }[],
-  question: string
+  question: string,
+  otherPapers?: { id: string; title: string; categories: string[]; summary: string | null }[]
 ): Promise<string> {
   const bsScore = paper.bs_score as Record<string, unknown> | null;
   const bsContext = bsScore
@@ -48,7 +49,7 @@ Published: ${paper.published || "Unknown"}
 
 Abstract: ${paper.abstract || "N/A"}
 
-${paper.summary ? `AI Summary: ${paper.summary}` : ""}${bsContext}`;
+${paper.summary ? `AI Summary: ${paper.summary}` : ""}${bsContext}${otherPapers && otherPapers.length > 0 ? `\nThe user's library also contains these papers. Reference them when relevant to help the user connect ideas across their reading:\n${otherPapers.map(p => `- "${p.title}" (${p.categories?.join(", ") || "uncategorized"})`).join("\n")}` : ""}`;
 
   const messages = [
     ...history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
@@ -56,7 +57,7 @@ ${paper.summary ? `AI Summary: ${paper.summary}` : ""}${bsContext}`;
   ];
 
   const message = await client.messages.create({
-    model: "claude-opus-4-6",
+    model: "claude-sonnet-4-6",
     max_tokens: 2048,
     system: systemPrompt,
     messages,

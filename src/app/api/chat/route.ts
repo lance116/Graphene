@@ -22,10 +22,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Paper not found" }, { status: 404 });
   }
 
+  // Fetch other papers in the user's library for cross-referencing
+  const { data: otherPapers } = await supabase
+    .from("user_papers")
+    .select("papers(id, title, categories, summary)")
+    .eq("user_id", user.id)
+    .neq("paper_id", paperId)
+    .limit(30);
+
+  const libraryPapers = (otherPapers || [])
+    .map((up: Record<string, unknown>) => up.papers as { id: string; title: string; categories: string[]; summary: string | null } | null)
+    .filter((p): p is { id: string; title: string; categories: string[]; summary: string | null } => p !== null);
+
   const answer = await chatAboutPaper(
     paper,
     (history || []) as { role: "user" | "assistant"; content: string }[],
-    question
+    question,
+    libraryPapers
   );
 
   return NextResponse.json({ answer });

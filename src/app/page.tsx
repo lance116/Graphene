@@ -23,7 +23,7 @@ import ResizeHandle from "@/components/ResizeHandle";
 import PaperGraph from "@/components/PaperGraph";
 import LoginPage from "@/components/LoginPage";
 import { useAuth } from "@/components/AuthProvider";
-import { LogOut, Compass, User } from "lucide-react";
+import { LogOut, Compass, User, FileText } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
@@ -344,7 +344,7 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-screen flex flex-col overflow-hidden pb-14 sm:pb-0">
       {/* Top bar */}
       <header className="h-14 border-b border-border flex items-center justify-between px-6 shrink-0 bg-surface">
         <div className="flex items-center gap-4">
@@ -605,6 +605,7 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
                   onUpdateNotes={handleUpdateNotes}
                   onTogglePublic={handleTogglePublic}
                   onDelete={handleDelete}
+                  onEnrich={() => enrichPaper(selectedPaper.id)}
                   getToken={getToken}
                   isVerified={isVerified}
                 />
@@ -621,6 +622,40 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
         onAdd={handleAddPaper}
         onImportBibtex={handleImportBibtex}
       />
+
+      {/* Mobile bottom nav */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex items-center justify-around py-2 sm:hidden z-40">
+        <button
+          onClick={() => { setSelectedPaperId(null); setSelectedPaper(null); }}
+          className="flex flex-col items-center gap-0.5 px-3 py-1 text-text-dim"
+        >
+          <FileText size={18} />
+          <span className="text-[9px] tracking-wider">Papers</span>
+        </button>
+        <button
+          onClick={() => setView(view === "graph" ? "list" : "graph")}
+          className="flex flex-col items-center gap-0.5 px-3 py-1 text-text-dim"
+        >
+          <LayoutGrid size={18} />
+          <span className="text-[9px] tracking-wider">Graph</span>
+        </button>
+        <Link
+          href="/explore"
+          className="flex flex-col items-center gap-0.5 px-3 py-1 text-text-dim"
+        >
+          <Compass size={18} />
+          <span className="text-[9px] tracking-wider">Explore</span>
+        </Link>
+        {username && (
+          <Link
+            href={`/profile/${username}`}
+            className="flex flex-col items-center gap-0.5 px-3 py-1 text-text-dim"
+          >
+            <User size={18} />
+            <span className="text-[9px] tracking-wider">Profile</span>
+          </Link>
+        )}
+      </nav>
 
     </div>
   );
