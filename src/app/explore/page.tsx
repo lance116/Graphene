@@ -13,6 +13,7 @@ import {
   FileText,
   BookOpen,
   Calendar,
+  Sparkles,
 } from "lucide-react";
 import { humanCategory } from "@/lib/categories";
 import { decodeEntities } from "@/lib/entities";
@@ -47,8 +48,9 @@ type UserProfile = {
 
 export default function ExplorePage() {
   const { user, getToken } = useAuth();
-  const [tab, setTab] = useState<"papers" | "people">("papers");
+  const [tab, setTab] = useState<"foryou" | "papers" | "people">(user ? "foryou" : "papers");
   const [papers, setPapers] = useState<FeedPaper[]>([]);
+  const [recommended, setRecommended] = useState<{ id: string; title: string; authors: string[]; year: number; abstract: string | null; citation_count: number; source_url: string }[]>([]);
   const [people, setPeople] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<"trending" | "recent" | "stars">("trending");
@@ -59,6 +61,27 @@ export default function ExplorePage() {
     const t = setTimeout(() => setSearchDebounced(search), 300);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Fetch "For You" recommendations
+  useEffect(() => {
+    if (tab !== "foryou" || !user) return;
+    const fetchRecs = async () => {
+      setLoading(true);
+      try {
+        const token = await getToken();
+        const res = await fetch("/api/feed/recommended", {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const data = await res.json();
+        setRecommended(data.papers || []);
+      } catch (e) {
+        console.error("Failed to fetch recommendations:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRecs();
+  }, [user, tab]);
 
   useEffect(() => {
     if (tab !== "papers") return;
@@ -177,6 +200,19 @@ export default function ExplorePage() {
         <div className="flex items-center justify-between px-4 sm:px-6 pb-2 gap-2">
           {/* Tabs */}
           <div className="flex border border-border">
+            {user && (
+              <button
+                onClick={() => setTab("foryou")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase transition-colors ${
+                  tab === "foryou"
+                    ? "bg-accent text-bg"
+                    : "text-text-dim hover:text-text"
+                }`}
+              >
+                <Sparkles size={10} />
+                For You
+              </button>
+            )}
             <button
               onClick={() => setTab("papers")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase transition-colors ${
@@ -231,6 +267,59 @@ export default function ExplorePage() {
           <div className="text-center py-12 text-text-dim text-xs tracking-wider">
             Loading...
           </div>
+        ) : tab === "foryou" ? (
+          recommended.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-text-dim text-xs tracking-wider">
+                Add some arXiv papers to your library to get personalized recommendations.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-[10px] text-text-dim tracking-wider uppercase mb-2">
+                Based on your library — {recommended.length} recommendations
+              </p>
+              {recommended.map((rec) => (
+                <div
+                  key={rec.id}
+                  className="border border-border p-4 hover:border-border-hover transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-medium text-accent leading-tight">
+                        {rec.title}
+                      </h3>
+                      <p className="text-[10px] text-text-muted mt-1">
+                        {rec.authors?.slice(0, 3).join(", ")}
+                        {rec.authors?.length > 3 && " et al."}
+                        {rec.year && ` (${rec.year})`}
+                      </p>
+                      {rec.abstract && (
+                        <p className="text-[10px] text-text-dim mt-2 line-clamp-2">
+                          {rec.abstract.slice(0, 200)}...
+                        </p>
+                      )}
+                      <div className="flex items-center gap-3 mt-2">
+                        {rec.citation_count > 0 && (
+                          <span className="text-[9px] text-text-dim tracking-wider">
+                            {rec.citation_count.toLocaleString()} citations
+                          </span>
+                        )}
+                        <a
+                          href={rec.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-text-dim hover:text-text transition-colors"
+                        >
+                          <ExternalLink size={10} />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
         ) : tab === "papers" ? (
           filteredPapers.length === 0 ? (
             <div className="text-center py-12">
