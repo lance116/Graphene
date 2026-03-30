@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { Star, ArrowLeft, BookOpen, Calendar } from "lucide-react";
+import { Star, ArrowLeft, BookOpen, Calendar, Pencil, X } from "lucide-react";
 import { humanCategory } from "@/lib/categories";
 import { decodeEntities } from "@/lib/entities";
+import { useAuth } from "@/components/AuthProvider";
 import Link from "next/link";
 
 type ProfileData = {
+  profile_id: string;
   profile: {
     username: string;
     display_name: string | null;
@@ -25,9 +27,14 @@ type ProfileData = {
 
 export default function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = use(params);
+  const { user, getToken } = useAuth();
   const [data, setData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"papers" | "stars">("papers");
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ username: "", display_name: "", bio: "" });
+  const [editError, setEditError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -68,6 +75,57 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
   const { profile, starred_papers, public_papers, stats } = data;
   const displayPapers = tab === "papers" ? public_papers : starred_papers;
+  const isOwner = user?.id === data.profile_id;
+
+  const startEditing = () => {
+    setEditForm({
+      username: profile.username,
+      display_name: profile.display_name || "",
+      bio: profile.bio || "",
+    });
+    setEditError("");
+    setEditing(true);
+  };
+
+  const saveProfile = async () => {
+    setSaving(true);
+    setEditError("");
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/profiles/me", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          username: editForm.username.trim().toLowerCase(),
+          display_name: editForm.display_name.trim() || null,
+          bio: editForm.bio.trim(),
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setEditError(result.error || "Failed to save");
+        return;
+      }
+      // If username changed, redirect to new profile URL
+      if (result.profile.username !== username) {
+        window.location.href = `/profile/${result.profile.username}`;
+        return;
+      }
+      // Update local data
+      setData((prev) => prev ? {
+        ...prev,
+        profile: { ...prev.profile, ...result.profile },
+      } : prev);
+      setEditing(false);
+    } catch {
+      setEditError("Something went wrong");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-bg">
@@ -95,32 +153,89 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <h1 className="text-base sm:text-lg font-medium text-accent truncate">
-                  {profile.display_name || profile.username}
-                </h1>
-                {profile.is_verified && (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-blue-400 shrink-0"><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" stroke="currentColor" strokeWidth="2" fill="currentColor" fillOpacity="0.15"/></svg>
-                )}
-              </div>
-              <p className="text-[10px] text-text-dim tracking-wider">@{profile.username}</p>
-              {profile.bio && (
-                <p className="text-xs text-text mt-2">{profile.bio}</p>
+              {editing ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[9px] text-text-dim tracking-[0.2em] uppercase block mb-1">Display Name</label>
+                    <input
+                      type="text"
+                      value={editForm.display_name}
+                      onChange={(e) => setEditForm((f) => ({ ...f, display_name: e.target.value }))}
+                      placeholder="Your name"
+                      className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-text-dim tracking-[0.2em] uppercase block mb-1">Username</label>
+                    <input
+                      type="text"
+                      value={editForm.username}
+                      onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value.replace(/[^a-z0-9_-]/gi, "").toLowerCase() }))}
+                      className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-text-dim tracking-[0.2em] uppercase block mb-1">Bio</label>
+                    <textarea
+                      value={editForm.bio}
+                      onChange={(e) => setEditForm((f) => ({ ...f, bio: e.target.value }))}
+                      placeholder="Tell us about yourself"
+                      rows={3}
+                      className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover resize-none"
+                    />
+                  </div>
+                  {editError && <p className="text-[10px] text-red-400">{editError}</p>}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={saveProfile}
+                      disabled={saving}
+                      className="px-4 py-1.5 bg-accent text-bg text-[10px] tracking-wider uppercase font-medium hover:bg-text disabled:opacity-30 transition-colors"
+                    >
+                      {saving ? "Saving..." : "Save"}
+                    </button>
+                    <button
+                      onClick={() => setEditing(false)}
+                      className="px-4 py-1.5 border border-border text-text-dim text-[10px] tracking-wider uppercase hover:text-text hover:border-border-hover transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5">
+                    <h1 className="text-base sm:text-lg font-medium text-accent truncate">
+                      {profile.display_name || profile.username}
+                    </h1>
+                    {profile.is_verified && (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-blue-400 shrink-0"><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" stroke="currentColor" strokeWidth="2" fill="currentColor" fillOpacity="0.15"/></svg>
+                    )}
+                    {isOwner && (
+                      <button onClick={startEditing} className="ml-1 text-text-dim hover:text-accent transition-colors" title="Edit profile">
+                        <Pencil size={12} />
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-text-dim tracking-wider">@{profile.username}</p>
+                  {profile.bio && (
+                    <p className="text-xs text-text mt-2">{profile.bio}</p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-3">
+                    <span className="text-[10px] text-text-dim tracking-wider flex items-center gap-1">
+                      <BookOpen size={10} />
+                      {stats.public_papers} papers
+                    </span>
+                    <span className="text-[10px] text-text-dim tracking-wider flex items-center gap-1">
+                      <Star size={10} />
+                      {stats.stars_given} starred
+                    </span>
+                    <span className="text-[10px] text-text-dim tracking-wider flex items-center gap-1">
+                      <Calendar size={10} />
+                      Joined {new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                    </span>
+                  </div>
+                </>
               )}
-              <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-3">
-                <span className="text-[10px] text-text-dim tracking-wider flex items-center gap-1">
-                  <BookOpen size={10} />
-                  {stats.public_papers} papers
-                </span>
-                <span className="text-[10px] text-text-dim tracking-wider flex items-center gap-1">
-                  <Star size={10} />
-                  {stats.stars_given} starred
-                </span>
-                <span className="text-[10px] text-text-dim tracking-wider flex items-center gap-1">
-                  <Calendar size={10} />
-                  Joined {new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                </span>
-              </div>
             </div>
           </div>
         </div>

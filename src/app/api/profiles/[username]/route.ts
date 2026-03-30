@@ -63,6 +63,7 @@ export async function GET(
     .eq("user_id", profile.id);
 
   return NextResponse.json({
+    profile_id: profile.id,
     profile: {
       username: profile.username,
       display_name: profile.display_name,
