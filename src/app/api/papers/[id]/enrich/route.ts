@@ -48,7 +48,7 @@ export async function POST(
     const sourceUrl = paper.source_url || paper.pdf_url;
 
     // Try HTML scraping first (faster, preserves structure)
-    if (sourceUrl && !sourceUrl.toLowerCase().endsWith(".pdf")) {
+    if (sourceUrl && !/\.pdf(\?|$)/i.test(sourceUrl)) {
       try {
         const pageRes = await fetch(sourceUrl);
         if (pageRes.ok) {

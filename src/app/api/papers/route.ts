@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
 
     // Non-arXiv URL
     const id = `web-${Date.now()}`;
-    const isPdf = url.toLowerCase().endsWith(".pdf") || url.includes("/pdf/");
+    const isPdf = /\.pdf(\?|$)/i.test(url) || url.includes("/pdf/");
 
     // Check if this URL was already added
     const { data: existing } = await supabase
