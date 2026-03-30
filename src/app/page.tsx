@@ -495,6 +495,15 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
         {/* Detail panel */}
         {selectedPaper && (
           <>
+            {!detailCollapsed && (
+              <div className="shrink-0 h-full">
+                <ResizeHandle
+                  onResize={(delta) =>
+                    setDetailWidth((w) => Math.max(280, Math.min(700, w - delta)))
+                  }
+                />
+              </div>
+            )}
             <div className="shrink-0 flex flex-col">
               {view === "list" && readerCollapsed && (
                 <button
@@ -516,15 +525,6 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
                   <PanelRightClose size={14} />
                 )}
               </button>
-              {!detailCollapsed && (
-                <div className="flex-1">
-                  <ResizeHandle
-                    onResize={(delta) =>
-                      setDetailWidth((w) => Math.max(280, Math.min(700, w - delta)))
-                    }
-                  />
-                </div>
-              )}
             </div>
             <div
               style={readerCollapsed && !detailCollapsed ? undefined : { width: detailCollapsed ? 0 : detailWidth }}

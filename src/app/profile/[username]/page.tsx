@@ -312,7 +312,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         </div>
 
         {/* Achievements */}
-        {data.achievements.length > 0 && (
+        {data.achievements?.length > 0 && (
           <div className="border border-border p-4 sm:p-5 mb-4 sm:mb-6">
             <h3 className="text-[10px] text-text-dim tracking-[0.2em] uppercase mb-3">Achievements</h3>
             <div className="flex flex-wrap gap-2">
@@ -332,13 +332,13 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             </div>
 
             {/* Next achievements (only show to profile owner) */}
-            {isOwner && data.next_achievements.length > 0 && (
+            {isOwner && data.next_achievements?.length > 0 && (
               <div className="mt-4 pt-3 border-t border-border/50">
                 <button
                   onClick={() => setShowAllNext((v) => !v)}
                   className="text-[9px] text-text-dim tracking-wider uppercase hover:text-text transition-colors"
                 >
-                  {showAllNext ? "Hide" : "Show"} next goals ({data.next_achievements.length})
+                  {showAllNext ? "Hide" : "Show"} next goals ({data.next_achievements?.length})
                 </button>
                 {showAllNext && (
                   <div className="mt-2 space-y-1.5">

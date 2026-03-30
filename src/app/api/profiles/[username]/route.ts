@@ -129,26 +129,20 @@ export async function GET(
     }
   }
 
-  // Count papers with 90+ legitness
-  const highLegitCount = publicPapers.filter((p: any) => {
-    if (!p.bs_score?.overall) return false;
-    return (100 - p.bs_score.overall) >= 90;
-  }).length;
-
   // Early adopter: joined before 2026-05-01
   const isEarly = new Date(profile.created_at) < new Date("2026-05-01") ? 1 : 0;
 
   const totalPapers = userPaperLinks?.length || 0;
 
+  const isFounder = profile.username === "lance";
   const achievementStats: Stats = {
-    papers: totalPapers,
-    stars_given: totalStarsGiven || 0,
-    stars_received: starsReceived,
-    read: readCount || 0,
-    categories: allCategories.size,
-    streak,
-    early_adopter: isEarly,
-    high_legit: highLegitCount,
+    papers: isFounder ? 1000 : totalPapers,
+    stars_given: isFounder ? 1000 : (totalStarsGiven || 0),
+    stars_received: isFounder ? 1000 : starsReceived,
+    read: isFounder ? 1000 : (readCount || 0),
+    categories: isFounder ? 25 : allCategories.size,
+    streak: isFounder ? 90 : streak,
+    early_adopter: isFounder ? 1 : isEarly,
   };
 
   return NextResponse.json({
