@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
-import { Star, ArrowLeft, BookOpen, Calendar, Pencil, X } from "lucide-react";
+import { useState, useEffect, useRef, use } from "react";
+import { Star, ArrowLeft, BookOpen, Calendar, Pencil, Camera } from "lucide-react";
 import { humanCategory } from "@/lib/categories";
 import { decodeEntities } from "@/lib/entities";
 import { useAuth } from "@/components/AuthProvider";
@@ -32,7 +32,10 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"papers" | "stars">("papers");
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ username: "", display_name: "", bio: "", avatar_url: "" });
+  const [editForm, setEditForm] = useState({ username: "", display_name: "", bio: "" });
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [editError, setEditError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -82,10 +85,40 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
       username: profile.username,
       display_name: profile.display_name || "",
       bio: profile.bio || "",
-      avatar_url: profile.avatar_url || "",
     });
+    setAvatarPreview(null);
     setEditError("");
     setEditing(true);
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarPreview(URL.createObjectURL(file));
+    setUploadingAvatar(true);
+    setEditError("");
+    try {
+      const token = await getToken();
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/profiles/avatar", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setEditError(result.error || "Upload failed");
+        setAvatarPreview(null);
+        return;
+      }
+      setData((prev) => prev ? { ...prev, profile: { ...prev.profile, avatar_url: result.profile.avatar_url } } : prev);
+    } catch {
+      setEditError("Upload failed");
+      setAvatarPreview(null);
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const saveProfile = async () => {
@@ -103,7 +136,6 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           username: editForm.username.trim().toLowerCase(),
           display_name: editForm.display_name.trim() || null,
           bio: editForm.bio.trim(),
-          ...(profile.is_verified ? { avatar_url: editForm.avatar_url.trim() || null } : {}),
         }),
       });
       const result = await res.json();
@@ -143,17 +175,39 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         {/* Profile header */}
         <div className="border border-border p-4 sm:p-6 mb-4 sm:mb-6">
           <div className="flex items-start gap-3 sm:gap-4">
-            {profile.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                alt={profile.username}
-                className="w-12 h-12 sm:w-16 sm:h-16 border border-border object-cover shrink-0"
-              />
-            ) : (
-              <div className="w-12 h-12 sm:w-16 sm:h-16 border border-border bg-surface-2 flex items-center justify-center text-lg sm:text-xl text-accent font-bold shrink-0">
-                {(profile.display_name || profile.username)[0].toUpperCase()}
-              </div>
-            )}
+            <div className="relative shrink-0">
+              {(avatarPreview || profile.avatar_url) ? (
+                <img
+                  src={avatarPreview || profile.avatar_url!}
+                  alt={profile.username}
+                  className="w-12 h-12 sm:w-16 sm:h-16 border border-border object-cover"
+                />
+              ) : (
+                <div className="w-12 h-12 sm:w-16 sm:h-16 border border-border bg-surface-2 flex items-center justify-center text-lg sm:text-xl text-accent font-bold">
+                  {(profile.display_name || profile.username)[0].toUpperCase()}
+                </div>
+              )}
+              {editing && profile.is_verified && (
+                <>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                    className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
+                  >
+                    {uploadingAvatar
+                      ? <span className="text-[8px] text-white">...</span>
+                      : <Camera size={16} className="text-white" />}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                </>
+              )}
+            </div>
             <div className="flex-1 min-w-0">
               {editing ? (
                 <div className="space-y-3">
@@ -186,18 +240,6 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                       className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover resize-none"
                     />
                   </div>
-                  {profile.is_verified && (
-                    <div>
-                      <label className="text-[9px] text-text-dim tracking-[0.2em] uppercase block mb-1">Avatar URL</label>
-                      <input
-                        type="url"
-                        value={editForm.avatar_url}
-                        onChange={(e) => setEditForm((f) => ({ ...f, avatar_url: e.target.value }))}
-                        placeholder="https://example.com/photo.jpg"
-                        className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover"
-                      />
-                    </div>
-                  )}
                   {editError && <p className="text-[10px] text-red-400">{editError}</p>}
                   <div className="flex items-center gap-2">
                     <button
