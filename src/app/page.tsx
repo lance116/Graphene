@@ -208,6 +208,18 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
                       ? { ...prev, bs_score: eventData }
                       : prev
                   );
+                } else if (eventType === "prerequisites") {
+                  setSelectedPaper((prev) =>
+                    prev && prev.id === paperId
+                      ? { ...prev, prerequisites: eventData }
+                      : prev
+                  );
+                } else if (eventType === "further_reading") {
+                  setSelectedPaper((prev) =>
+                    prev && prev.id === paperId
+                      ? { ...prev, ...eventData }
+                      : prev
+                  );
                 } else if (eventType === "done") {
                   fetchPapers();
                 }

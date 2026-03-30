@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { supabase } from "@/lib/supabase";
 import Anthropic from "@anthropic-ai/sdk";
 import { getUser } from "@/lib/auth";
+import { checkTokenLimit, trackTokens } from "@/lib/tokens";
 
 export const maxDuration = 60;
 
@@ -16,6 +17,15 @@ export async function POST(
   const user = await getUser(req);
   if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   const { id } = await params;
+
+  // Check daily token limit
+  const withinLimit = await checkTokenLimit(user.id);
+  if (!withinLimit) {
+    return new Response(JSON.stringify({ error: "Daily token limit reached. Try again tomorrow." }), {
+      status: 429,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const { data: paper } = await supabase
     .from("papers")
@@ -280,7 +290,72 @@ ${contextText.slice(0, 10000)}`,
         }
       })();
 
-      await Promise.all([metaPromise, summaryPromise, bsPromise, connPromise]);
+      // Semantic Scholar: citation count + related papers (arXiv only)
+      const semanticScholarPromise = (async () => {
+        if (!isArxiv) return;
+        try {
+          const [infoRes, recsRes] = await Promise.all([
+            fetch(`https://api.semanticscholar.org/graph/v1/paper/ArXiv:${id}?fields=citationCount,externalIds`, {
+              signal: AbortSignal.timeout(8000),
+            }),
+            fetch(`https://api.semanticscholar.org/graph/v1/paper/ArXiv:${id}/recommendations?fields=title,authors,year,externalIds&limit=5`, {
+              signal: AbortSignal.timeout(8000),
+            }),
+          ]);
+
+          let citationCount = 0;
+          if (infoRes.ok) {
+            const info = await infoRes.json();
+            citationCount = info.citationCount ?? 0;
+          }
+
+          let relatedPapers: { title: string; authors: string[]; year: number; arxiv_id: string }[] = [];
+          if (recsRes.ok) {
+            const recs = await recsRes.json();
+            relatedPapers = (recs.recommendedPapers || [])
+              .filter((p: { externalIds?: { ArXiv?: string } }) => p.externalIds?.ArXiv)
+              .map((p: { title: string; authors: { name: string }[]; year: number; externalIds: { ArXiv: string } }) => ({
+                title: p.title,
+                authors: p.authors?.map((a) => a.name) || [],
+                year: p.year,
+                arxiv_id: p.externalIds.ArXiv,
+              }));
+          }
+
+          await supabase.from("papers").update({ citation_count: citationCount, further_reading: relatedPapers }).eq("id", id);
+          send("further_reading", { citation_count: citationCount, further_reading: relatedPapers });
+        } catch {
+          // Semantic Scholar can be slow/flaky — fail silently
+        }
+      })();
+
+      // Prerequisites generation
+      const prerequisitesPromise = (async () => {
+        try {
+          const prereqMsg = await client.messages.create({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 512,
+            messages: [{
+              role: "user",
+              content: `Generate 4-6 prerequisites for understanding this paper. Return ONLY JSON array: [{"topic":"...","why":"one sentence on why this is needed","difficulty":"basic|intermediate|advanced"}]\n\nTitle: ${title}\nAbstract: ${abstract?.slice(0, 1000) || ""}`,
+            }],
+          });
+          const prereqText = prereqMsg.content[0].type === "text" ? prereqMsg.content[0].text : "[]";
+          const prereqMatch = prereqText.match(/\[[\s\S]*\]/);
+          if (prereqMatch) {
+            const prerequisites = JSON.parse(prereqMatch[0]);
+            await supabase.from("papers").update({ prerequisites }).eq("id", id);
+            send("prerequisites", prerequisites);
+          }
+        } catch {
+          // Fail silently
+        }
+      })();
+
+      await Promise.all([metaPromise, summaryPromise, bsPromise, connPromise, semanticScholarPromise, prerequisitesPromise]);
+
+      // Track ~5000 tokens per enrichment (rough estimate across all calls)
+      await trackTokens(user.id, 5000).catch(() => {});
 
       send("done", {});
       controller.close();

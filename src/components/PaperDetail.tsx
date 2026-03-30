@@ -488,6 +488,60 @@ export default function PaperDetail({
               )}
             </div>
 
+            {/* Prerequisites */}
+            {(paper as any).prerequisites?.length > 0 && (
+              <div>
+                <h3 className="text-[10px] text-text-dim tracking-[0.2em] uppercase mb-2">
+                  Prerequisites
+                </h3>
+                <div className="space-y-2">
+                  {((paper as any).prerequisites as { topic: string; why: string; difficulty: string }[]).map((p, i) => (
+                    <div key={i} className="border border-border p-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-text font-medium">{p.topic}</span>
+                        <span className={`text-[8px] tracking-wider uppercase px-1.5 py-0.5 border ${
+                          p.difficulty === "basic" ? "border-green-500/30 text-green-400" :
+                          p.difficulty === "intermediate" ? "border-yellow-500/30 text-yellow-400" :
+                          "border-red-500/30 text-red-400"
+                        }`}>{p.difficulty}</span>
+                      </div>
+                      <p className="text-[10px] text-text-dim mt-1">{p.why}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Further Reading */}
+            {(paper as any).further_reading?.length > 0 && (
+              <div>
+                <h3 className="text-[10px] text-text-dim tracking-[0.2em] uppercase mb-2">
+                  Further Reading
+                  {(paper as any).citation_count > 0 && (
+                    <span className="text-text-dim ml-2 normal-case">({(paper as any).citation_count} citations)</span>
+                  )}
+                </h3>
+                <div className="space-y-1.5">
+                  {((paper as any).further_reading as { title: string; authors: string[]; year: number; arxiv_id: string }[]).map((r, i) => (
+                    <a
+                      key={i}
+                      href={`https://arxiv.org/abs/${r.arxiv_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block border border-border p-2.5 hover:border-border-hover transition-colors"
+                    >
+                      <p className="text-xs text-accent leading-tight">{r.title}</p>
+                      <p className="text-[10px] text-text-dim mt-1">
+                        {r.authors?.slice(0, 3).join(", ")}
+                        {r.authors?.length > 3 && " et al."}
+                        {r.year && ` (${r.year})`}
+                      </p>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Abstract */}
             {paper.abstract && (
               <div>

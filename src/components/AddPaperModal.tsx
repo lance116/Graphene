@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { X, Plus, Search, Loader2, ExternalLink, Upload, FileText } from "lucide-react";
+import { X, Plus, Search, Loader2, ExternalLink, Upload, FileText, List } from "lucide-react";
 import { parseBibtex, BibtexEntry } from "@/lib/bibtex";
 
 type ArxivResult = {
@@ -32,7 +32,11 @@ export default function AddPaperModal({
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"url" | "search" | "bibtex">("url");
+  const [tab, setTab] = useState<"url" | "bulk" | "search" | "bibtex">("url");
+
+  const [bulkInput, setBulkInput] = useState("");
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
+  const [bulkDone, setBulkDone] = useState<number | null>(null);
 
   const [bibtexInput, setBibtexInput] = useState("");
   const [parsedEntries, setParsedEntries] = useState<BibtexEntry[]>([]);
@@ -129,6 +133,38 @@ export default function AddPaperModal({
     }
   };
 
+  const handleBulkImport = async () => {
+    const lines = bulkInput
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+    if (lines.length === 0) return;
+
+    setBulkDone(null);
+    setError("");
+    setLoading(true);
+    let success = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      setBulkProgress({ current: i + 1, total: lines.length });
+      let line = lines[i];
+      // If it looks like a bare arXiv ID (digits, dots, optional version), wrap it
+      if (/^\d{4}\.\d{4,5}(v\d+)?$/.test(line)) {
+        line = `https://arxiv.org/abs/${line}`;
+      }
+      try {
+        await onAdd(line);
+        success++;
+      } catch {
+        // skip failures silently, count only successes
+      }
+    }
+
+    setBulkProgress(null);
+    setBulkDone(success);
+    setLoading(false);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
       <div className="w-full max-w-2xl bg-surface border border-border animate-fade-in">
@@ -156,6 +192,16 @@ export default function AddPaperModal({
             }`}
           >
             Paste URL
+          </button>
+          <button
+            onClick={() => setTab("bulk")}
+            className={`flex-1 px-4 py-3 text-xs tracking-widest uppercase transition-colors ${
+              tab === "bulk"
+                ? "text-accent border-b border-accent"
+                : "text-text-muted hover:text-text"
+            }`}
+          >
+            Bulk Import
           </button>
           <button
             onClick={() => setTab("search")}
@@ -208,6 +254,44 @@ export default function AddPaperModal({
                   Add
                 </button>
               </div>
+            </div>
+          ) : tab === "bulk" ? (
+            <div>
+              <label className="block text-xs text-text-muted mb-2 tracking-wider uppercase">
+                Paste arXiv IDs or URLs, one per line
+              </label>
+              <textarea
+                value={bulkInput}
+                onChange={(e) => { setBulkInput(e.target.value); setBulkDone(null); }}
+                placeholder={`2301.07041\nhttps://arxiv.org/abs/2301.07042\nhttps://arxiv.org/pdf/2301.07043`}
+                rows={8}
+                className="w-full bg-bg border border-border px-4 py-3 text-sm text-text font-mono placeholder:text-text-dim focus:outline-none focus:border-border-hover resize-none"
+              />
+
+              {bulkProgress && (
+                <p className="text-xs text-text-muted mt-2 tracking-wider">
+                  Adding {bulkProgress.current}/{bulkProgress.total}...
+                </p>
+              )}
+
+              {bulkDone !== null && !bulkProgress && (
+                <p className="text-xs text-accent mt-2 tracking-wider">
+                  Successfully added {bulkDone} {bulkDone === 1 ? "paper" : "papers"}
+                </p>
+              )}
+
+              <button
+                onClick={handleBulkImport}
+                disabled={loading || !bulkInput.trim()}
+                className="mt-3 w-full px-4 py-3 bg-accent text-bg text-xs font-medium tracking-wider uppercase hover:bg-text disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <List size={14} />
+                )}
+                Import All
+              </button>
             </div>
           ) : tab === "search" ? (
             <div>
