@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { computeAchievements, nextAchievements, type Stats } from "@/lib/achievements";
 
 // GET public profile by username
 export async function GET(
@@ -98,52 +97,7 @@ export async function GET(
     .eq("user_id", profile.id)
     .eq("is_read", true);
 
-  // Count distinct categories across user's papers
-  const allCategories = new Set<string>();
-  for (const p of publicPapers) {
-    if (Array.isArray(p.categories)) {
-      for (const c of p.categories) allCategories.add(c);
-    }
-  }
-
-  // Calculate add streak (consecutive days with papers added)
-  const { data: addDates } = await supabase
-    .from("user_papers")
-    .select("added_at")
-    .eq("user_id", profile.id)
-    .order("added_at", { ascending: false });
-
-  let streak = 0;
-  if (addDates && addDates.length > 0) {
-    const days = [...new Set(addDates.map((d) => d.added_at?.slice(0, 10)))].sort().reverse();
-    streak = 1;
-    for (let i = 1; i < days.length; i++) {
-      const prev = new Date(days[i - 1]);
-      const curr = new Date(days[i]);
-      const diff = (prev.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24);
-      if (Math.round(diff) === 1) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-  }
-
-  // Early adopter: joined before 2026-05-01
-  const isEarly = new Date(profile.created_at) < new Date("2026-05-01") ? 1 : 0;
-
   const totalPapers = userPaperLinks?.length || 0;
-
-  const isFounder = profile.username === "lance";
-  const achievementStats: Stats = {
-    papers: isFounder ? 1000 : totalPapers,
-    stars_given: isFounder ? 1000 : (totalStarsGiven || 0),
-    stars_received: isFounder ? 1000 : starsReceived,
-    read: isFounder ? 1000 : (readCount || 0),
-    categories: isFounder ? 25 : allCategories.size,
-    streak: isFounder ? 90 : streak,
-    early_adopter: isFounder ? 1 : isEarly,
-  };
 
   return NextResponse.json({
     profile_id: profile.id,
@@ -166,7 +120,5 @@ export async function GET(
       stars_received: starsReceived,
       read: readCount || 0,
     },
-    achievements: computeAchievements(achievementStats),
-    next_achievements: nextAchievements(achievementStats),
   });
 }
