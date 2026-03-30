@@ -32,7 +32,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"papers" | "stars">("papers");
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ username: "", display_name: "", bio: "" });
+  const [editForm, setEditForm] = useState({ username: "", display_name: "", bio: "", avatar_url: "" });
   const [editError, setEditError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -82,6 +82,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
       username: profile.username,
       display_name: profile.display_name || "",
       bio: profile.bio || "",
+      avatar_url: profile.avatar_url || "",
     });
     setEditError("");
     setEditing(true);
@@ -102,6 +103,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           username: editForm.username.trim().toLowerCase(),
           display_name: editForm.display_name.trim() || null,
           bio: editForm.bio.trim(),
+          ...(profile.is_verified ? { avatar_url: editForm.avatar_url.trim() || null } : {}),
         }),
       });
       const result = await res.json();
@@ -184,6 +186,18 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                       className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover resize-none"
                     />
                   </div>
+                  {profile.is_verified && (
+                    <div>
+                      <label className="text-[9px] text-text-dim tracking-[0.2em] uppercase block mb-1">Avatar URL</label>
+                      <input
+                        type="url"
+                        value={editForm.avatar_url}
+                        onChange={(e) => setEditForm((f) => ({ ...f, avatar_url: e.target.value }))}
+                        placeholder="https://example.com/photo.jpg"
+                        className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover"
+                      />
+                    </div>
+                  )}
                   {editError && <p className="text-[10px] text-red-400">{editError}</p>}
                   <div className="flex items-center gap-2">
                     <button
