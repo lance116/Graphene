@@ -1,11 +1,21 @@
 "use client";
 
 import { useState, useEffect, useRef, use } from "react";
-import { Star, ArrowLeft, BookOpen, Calendar, Pencil, Camera } from "lucide-react";
+import { Star, ArrowLeft, BookOpen, Calendar, Pencil, Camera, FileText } from "lucide-react";
 import { humanCategory } from "@/lib/categories";
 import { decodeEntities } from "@/lib/entities";
 import { useAuth } from "@/components/AuthProvider";
 import Link from "next/link";
+import type { Achievement } from "@/lib/achievements";
+
+const tierColor = {
+  bronze: "border-amber-700/50 bg-amber-900/20 text-amber-500",
+  silver: "border-gray-400/50 bg-gray-700/20 text-gray-300",
+  gold: "border-yellow-500/50 bg-yellow-900/20 text-yellow-400",
+  platinum: "border-cyan-400/50 bg-cyan-900/20 text-cyan-300",
+} as const;
+
+const tierLabel = { bronze: "Bronze", silver: "Silver", gold: "Gold", platinum: "Platinum" } as const;
 
 type ProfileData = {
   profile_id: string;
@@ -17,12 +27,16 @@ type ProfileData = {
     is_verified: boolean;
     created_at: string;
   };
+  claimed_papers: any[];
   starred_papers: any[];
   public_papers: any[];
   stats: {
+    claimed: number;
     stars_given: number;
     public_papers: number;
   };
+  achievements: Achievement[];
+  next_achievements: (Achievement & { current: number; needed: number })[];
 };
 
 export default function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
@@ -30,7 +44,8 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const { user, getToken } = useAuth();
   const [data, setData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"papers" | "stars">("papers");
+  const [tab, setTab] = useState<"published" | "papers" | "stars">("papers");
+  const [showAllNext, setShowAllNext] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ username: "", display_name: "", bio: "" });
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -76,8 +91,8 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     );
   }
 
-  const { profile, starred_papers, public_papers, stats } = data;
-  const displayPapers = tab === "papers" ? public_papers : starred_papers;
+  const { profile, claimed_papers, starred_papers, public_papers, stats } = data;
+  const displayPapers = tab === "published" ? claimed_papers : tab === "papers" ? public_papers : starred_papers;
   const isOwner = user?.id === data.profile_id;
 
   const startEditing = () => {
@@ -296,8 +311,76 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           </div>
         </div>
 
+        {/* Achievements */}
+        {data.achievements.length > 0 && (
+          <div className="border border-border p-4 sm:p-5 mb-4 sm:mb-6">
+            <h3 className="text-[10px] text-text-dim tracking-[0.2em] uppercase mb-3">Achievements</h3>
+            <div className="flex flex-wrap gap-2">
+              {data.achievements.map((a) => (
+                <div
+                  key={a.id}
+                  className={`border px-3 py-2 flex items-center gap-2 ${tierColor[a.tier]}`}
+                  title={`${a.description} (${tierLabel[a.tier]})`}
+                >
+                  <span className="text-sm">{a.icon}</span>
+                  <div>
+                    <p className="text-[10px] font-medium leading-tight">{a.name}</p>
+                    <p className="text-[8px] opacity-60">{tierLabel[a.tier]}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Next achievements (only show to profile owner) */}
+            {isOwner && data.next_achievements.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-border/50">
+                <button
+                  onClick={() => setShowAllNext((v) => !v)}
+                  className="text-[9px] text-text-dim tracking-wider uppercase hover:text-text transition-colors"
+                >
+                  {showAllNext ? "Hide" : "Show"} next goals ({data.next_achievements.length})
+                </button>
+                {showAllNext && (
+                  <div className="mt-2 space-y-1.5">
+                    {data.next_achievements.map((a) => (
+                      <div key={a.id} className="flex items-center gap-3">
+                        <span className="text-sm opacity-40">{a.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[10px] text-text-dim">{a.description}</p>
+                            <p className="text-[9px] text-text-dim shrink-0">{a.current}/{a.needed}</p>
+                          </div>
+                          <div className="h-1 bg-surface-2 mt-1 w-full">
+                            <div
+                              className="h-full bg-accent/40 transition-all"
+                              style={{ width: `${Math.min(100, (a.current / a.needed) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="flex gap-0 border-b border-border mb-4">
+          {profile.is_verified && (
+            <button
+              onClick={() => setTab("published")}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-[10px] tracking-[0.2em] uppercase transition-colors ${
+                tab === "published"
+                  ? "text-accent border-b border-accent"
+                  : "text-text-dim hover:text-text"
+              }`}
+            >
+              <FileText size={10} />
+              Published ({claimed_papers.length})
+            </button>
+          )}
           {(["papers", "stars"] as const).map((t) => (
             <button
               key={t}
@@ -318,7 +401,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         {/* Paper list */}
         {displayPapers.length === 0 ? (
           <div className="text-center py-8 text-text-dim text-xs tracking-wider">
-            No {tab === "papers" ? "public papers" : "starred papers"} yet
+            No {tab === "published" ? "published papers" : tab === "papers" ? "public papers" : "starred papers"} yet
           </div>
         ) : (
           <div className="space-y-2">

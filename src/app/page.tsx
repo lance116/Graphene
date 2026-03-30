@@ -73,6 +73,7 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
   const [readerCollapsed, setReaderCollapsed] = useState(false);
   const [detailWidth, setDetailWidth] = useState(420);
   const [username, setUsername] = useState<string | null>(null);
+  const [isVerified, setIsVerified] = useState(false);
 
   // Check/create profile (server auto-creates from signup metadata)
   useEffect(() => {
@@ -80,7 +81,10 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
       try {
         const res = await authFetch("/api/profiles/me");
         const data = await res.json();
-        if (data.profile) setUsername(data.profile.username);
+        if (data.profile) {
+          setUsername(data.profile.username);
+          setIsVerified(data.profile.is_verified || false);
+        }
       } catch {}
     };
     checkProfile();
@@ -539,6 +543,7 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
                   onUpdateNotes={handleUpdateNotes}
                   onTogglePublic={handleTogglePublic}
                   getToken={getToken}
+                  isVerified={isVerified}
                 />
               </div>
             </div>

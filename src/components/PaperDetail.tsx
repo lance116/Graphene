@@ -17,6 +17,7 @@ import {
   Star,
   Globe,
   Lock,
+  Award,
 } from "lucide-react";
 
 export default function PaperDetail({
@@ -27,6 +28,7 @@ export default function PaperDetail({
   onUpdateNotes,
   onTogglePublic,
   getToken,
+  isVerified,
 }: {
   paper: Paper;
   messages: ChatMessage[];
@@ -35,6 +37,7 @@ export default function PaperDetail({
   onUpdateNotes: (notes: string) => void;
   onTogglePublic?: () => void;
   getToken?: () => Promise<string | null>;
+  isVerified?: boolean;
 }) {
   const [tab, setTab] = useState<"overview" | "chat" | "notes">("overview");
   const [messages, setMessages] = useState(initialMessages);
@@ -44,9 +47,11 @@ export default function PaperDetail({
   const [starred, setStarred] = useState(false);
   const [starCount, setStarCount] = useState(0);
   const [starLoading, setStarLoading] = useState(false);
+  const [claimed, setClaimed] = useState(false);
+  const [claimLoading, setClaimLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch star status
+  // Fetch star status + claim status
   useEffect(() => {
     const fetchStars = async () => {
       try {
@@ -60,7 +65,22 @@ export default function PaperDetail({
       } catch {}
     };
     fetchStars();
-  }, [paper.id, getToken]);
+    // Check if user has claimed this paper
+    if (isVerified) {
+      (async () => {
+        try {
+          const token = getToken ? await getToken() : null;
+          const res = await fetch(`/api/papers/${encodeURIComponent(paper.id)}/claim`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setClaimed(data.claimed);
+          }
+        } catch {}
+      })();
+    }
+  }, [paper.id, getToken, isVerified]);
 
   const handleToggleStar = async () => {
     if (starLoading) return;
@@ -79,6 +99,25 @@ export default function PaperDetail({
       setStarCount(data.star_count);
     } catch {} finally {
       setStarLoading(false);
+    }
+  };
+
+  const handleToggleClaim = async () => {
+    if (claimLoading) return;
+    setClaimLoading(true);
+    try {
+      const token = getToken ? await getToken() : null;
+      const res = await fetch(`/api/papers/${encodeURIComponent(paper.id)}/claim`, {
+        method: claimed ? "DELETE" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      const data = await res.json();
+      setClaimed(data.claimed);
+    } catch {} finally {
+      setClaimLoading(false);
     }
   };
 
@@ -180,11 +219,11 @@ export default function PaperDetail({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex flex-wrap items-center gap-2 mt-3">
           <button
             onClick={handleToggleStar}
             disabled={starLoading}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase border transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase border whitespace-nowrap transition-colors ${
               starred
                 ? "border-yellow-500/50 text-yellow-400"
                 : "border-border text-text hover:border-border-hover"
@@ -195,7 +234,7 @@ export default function PaperDetail({
           </button>
           <button
             onClick={onToggleRead}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase border transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase border whitespace-nowrap transition-colors ${
               paper.is_read
                 ? "border-accent text-accent"
                 : "border-border text-text hover:border-border-hover"
@@ -207,7 +246,7 @@ export default function PaperDetail({
           {onTogglePublic && (
             <button
               onClick={onTogglePublic}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase border transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase border whitespace-nowrap transition-colors ${
                 (paper as any).is_public
                   ? "border-accent text-accent"
                   : "border-border text-text hover:border-border-hover"
@@ -218,12 +257,26 @@ export default function PaperDetail({
               {(paper as any).is_public ? "Public" : "Private"}
             </button>
           )}
+          {isVerified && (
+            <button
+              onClick={handleToggleClaim}
+              disabled={claimLoading}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase border whitespace-nowrap transition-colors ${
+                claimed
+                  ? "border-blue-500/50 text-blue-400"
+                  : "border-border text-text hover:border-border-hover"
+              }`}
+            >
+              <Award size={10} />
+              {claimed ? "Claimed" : "Claim"}
+            </button>
+          )}
           {paper.pdf_url && (
             <a
               href={paper.pdf_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase border border-border text-text hover:border-border-hover transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase border border-border text-text hover:border-border-hover whitespace-nowrap transition-colors"
             >
               <FileText size={10} />
               PDF
@@ -234,7 +287,7 @@ export default function PaperDetail({
               href={paper.source_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase border border-border text-text hover:border-border-hover transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase border border-border text-text hover:border-border-hover whitespace-nowrap transition-colors"
             >
               <ExternalLink size={10} />
               Source
