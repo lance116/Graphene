@@ -147,10 +147,10 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
       setSelectedPaper(data.paper);
       setChatMessages([]);
 
-      // Enrich in the background (summary, connections) with streaming
-      if (!data.alreadyExists) {
-        enrichPaper(data.paper.id);
-      }
+      // Enrich paused for now
+      // if (!data.alreadyExists) {
+      //   enrichPaper(data.paper.id);
+      // }
     } catch (e) {
       console.error("Failed to add paper:", e);
     } finally {
@@ -238,12 +238,13 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
 
       await fetchPapers();
 
-      const newPapers = (data.imported || []).filter(
-        (p: { alreadyExists: boolean }) => !p.alreadyExists
-      );
-      for (const p of newPapers) {
-        enrichPaper(p.id);
-      }
+      // Enrich paused for now
+      // const newPapers = (data.imported || []).filter(
+      //   (p: { alreadyExists: boolean }) => !p.alreadyExists
+      // );
+      // for (const p of newPapers) {
+      //   enrichPaper(p.id);
+      // }
 
       if (data.imported?.length > 0) {
         setSelectedPaperId(data.imported[0].id);
@@ -283,6 +284,18 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
       });
       const data = await res.json();
       setSelectedPaper(data.paper);
+      fetchPapers();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedPaper) return;
+    try {
+      await authFetch(`/api/papers/${encodeURIComponent(selectedPaper.id)}`, { method: "DELETE" });
+      setSelectedPaperId(null);
+      setSelectedPaper(null);
       fetchPapers();
     } catch (e) {
       console.error(e);
@@ -579,6 +592,7 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
                   onToggleRead={handleToggleRead}
                   onUpdateNotes={handleUpdateNotes}
                   onTogglePublic={handleTogglePublic}
+                  onDelete={handleDelete}
                   getToken={getToken}
                   isVerified={isVerified}
                 />

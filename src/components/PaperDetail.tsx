@@ -18,6 +18,7 @@ import {
   Globe,
   Lock,
   Award,
+  Trash2,
 } from "lucide-react";
 
 export default function PaperDetail({
@@ -27,6 +28,7 @@ export default function PaperDetail({
   onToggleRead,
   onUpdateNotes,
   onTogglePublic,
+  onDelete,
   getToken,
   isVerified,
 }: {
@@ -36,6 +38,7 @@ export default function PaperDetail({
   onToggleRead: () => void;
   onUpdateNotes: (notes: string) => void;
   onTogglePublic?: () => void;
+  onDelete?: () => void;
   getToken?: () => Promise<string | null>;
   isVerified?: boolean;
 }) {
@@ -292,6 +295,15 @@ export default function PaperDetail({
               <ExternalLink size={10} />
               Source
             </a>
+          )}
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase border border-border text-red-400/70 hover:text-red-400 hover:border-red-400/50 whitespace-nowrap transition-colors"
+            >
+              <Trash2 size={10} />
+              Remove
+            </button>
           )}
         </div>
 
