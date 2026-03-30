@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   const recPromises = sampleIds.map(async (id) => {
     try {
       const res = await fetch(
-        `https://api.semanticscholar.org/graph/v1/paper/ArXiv:${id}/recommendations?fields=title,authors,year,abstract,externalIds,citationCount&limit=5`,
+        `https://api.semanticscholar.org/recommendations/v1/papers/forpaper/ArXiv:${id}?fields=title,authors,year,abstract,externalIds,citationCount&limit=5`,
         { signal: AbortSignal.timeout(8000) }
       );
       if (!res.ok) return [];

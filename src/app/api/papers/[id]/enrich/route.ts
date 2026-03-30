@@ -306,7 +306,7 @@ ${contextText.slice(0, 10000)}`,
             fetch(`https://api.semanticscholar.org/graph/v1/paper/ArXiv:${id}?fields=citationCount,externalIds`, {
               signal: AbortSignal.timeout(8000),
             }),
-            fetch(`https://api.semanticscholar.org/graph/v1/paper/ArXiv:${id}/recommendations?fields=title,authors,year,externalIds&limit=5`, {
+            fetch(`https://api.semanticscholar.org/recommendations/v1/papers/forpaper/ArXiv:${id}?fields=title,authors,year,externalIds&limit=5`, {
               signal: AbortSignal.timeout(8000),
             }),
           ]);
