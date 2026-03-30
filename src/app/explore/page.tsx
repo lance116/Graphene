@@ -3,36 +3,16 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import {
-  Star,
-  TrendingUp,
-  Clock,
   ArrowLeft,
   ExternalLink,
   Search,
   Users,
-  FileText,
   BookOpen,
+  Star,
   Calendar,
   Sparkles,
 } from "lucide-react";
-import { humanCategory } from "@/lib/categories";
-import { decodeEntities } from "@/lib/entities";
 import Link from "next/link";
-
-type FeedPaper = {
-  id: string;
-  title: string;
-  authors: string[];
-  abstract: string | null;
-  categories: string[];
-  published: string | null;
-  added_at: string;
-  bs_score: any;
-  source_url: string | null;
-  star_count: number;
-  starred: boolean;
-  owner: { username: string; display_name: string | null; is_verified: boolean } | null;
-};
 
 type UserProfile = {
   id: string;
@@ -256,125 +236,6 @@ export default function ExplorePage() {
                         )}
                       </div>
                     </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )
-        ) : tab === "papers" ? (
-          filteredPapers.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-text-dim text-xs tracking-wider">
-                {searchDebounced ? "No papers match your search" : "No public papers yet"}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredPapers.map((paper) => (
-                <div
-                  key={paper.id}
-                  className="border border-border p-3 sm:p-4 hover:border-border-hover transition-colors"
-                >
-                  <div className="flex items-start gap-3">
-                    <button
-                      onClick={() => handleToggleStar(paper.id)}
-                      className={`mt-0.5 shrink-0 flex flex-col items-center gap-0.5 transition-colors ${
-                        paper.starred
-                          ? "text-yellow-400"
-                          : "text-text-dim hover:text-text"
-                      }`}
-                    >
-                      <Star
-                        size={16}
-                        fill={paper.starred ? "currentColor" : "none"}
-                      />
-                      <span className="text-[9px]">{paper.star_count}</span>
-                    </button>
-
-                    <Link href={`/paper/${encodeURIComponent(paper.id)}`} className="flex-1 min-w-0">
-                      <h3 className="text-xs sm:text-sm font-medium text-accent leading-tight hover:underline">
-                        {decodeEntities(paper.title)}
-                      </h3>
-                      <p className="text-[10px] text-text-muted mt-1 truncate">
-                        {(paper.authors as string[])?.slice(0, 3).join(", ")}
-                        {(paper.authors as string[])?.length > 3 && " et al."}
-                      </p>
-
-                      {paper.bs_score && (
-                        <div className="flex items-center gap-3 mt-2">
-                          {paper.bs_score.interesting != null && (
-                            <span className="text-[9px] tracking-wider">
-                              <span className="text-text-dim">INTERESTING </span>
-                              <span
-                                style={{
-                                  color:
-                                    paper.bs_score.interesting >= 80
-                                      ? "#8bf7c4"
-                                      : paper.bs_score.interesting >= 60
-                                        ? "#b8f78b"
-                                        : "#f7e88b",
-                                }}
-                              >
-                                {paper.bs_score.interesting}
-                              </span>
-                            </span>
-                          )}
-                          {paper.bs_score.overall != null && (
-                            <span className="text-[9px] tracking-wider">
-                              <span className="text-text-dim">LEGIT </span>
-                              <span
-                                style={{
-                                  color:
-                                    100 - paper.bs_score.overall >= 80
-                                      ? "#8bf7c4"
-                                      : 100 - paper.bs_score.overall >= 60
-                                        ? "#b8f78b"
-                                        : "#f7e88b",
-                                }}
-                              >
-                                {100 - paper.bs_score.overall}
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2">
-                        {(paper.categories as string[])
-                          ?.slice(0, 2)
-                          .map((cat) => (
-                            <span
-                              key={cat}
-                              className="text-[9px] text-text-dim border border-border px-1.5 py-0.5"
-                            >
-                              {humanCategory(cat)}
-                            </span>
-                          ))}
-                        {paper.source_url && (
-                          <a
-                            href={paper.source_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-text-dim hover:text-text transition-colors"
-                          >
-                            <ExternalLink size={10} />
-                          </a>
-                        )}
-                        {user && (
-                          <button
-                            onClick={(e) => { e.preventDefault(); handleAddToLibrary(paper.source_url || `https://arxiv.org/abs/${paper.id}`, paper.id); }}
-                            disabled={addingPaper === paper.id || addedPapers.has(paper.id)}
-                            className={`text-[9px] tracking-wider uppercase px-2 py-0.5 border transition-colors ${
-                              addedPapers.has(paper.id)
-                                ? "border-accent/50 text-accent"
-                                : "border-border text-text-dim hover:border-accent hover:text-accent"
-                            }`}
-                          >
-                            {addedPapers.has(paper.id) ? "Added" : addingPaper === paper.id ? "..." : "+ Add"}
-                          </button>
-                        )}
-                      </div>
-                    </Link>
                   </div>
                 </div>
               ))}
