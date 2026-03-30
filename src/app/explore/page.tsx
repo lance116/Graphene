@@ -11,6 +11,7 @@ import {
   Star,
   Calendar,
   Sparkles,
+  Flame,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -28,8 +29,10 @@ type UserProfile = {
 
 export default function ExplorePage() {
   const { user, getToken } = useAuth();
-  const [tab, setTab] = useState<"foryou" | "people">("foryou");
+  const [tab, setTab] = useState<"foryou" | "popular" | "people">("foryou");
   const [recommended, setRecommended] = useState<{ id: string; title: string; authors: string[]; year: number; abstract: string | null; citation_count: number; source_url: string }[]>([]);
+  const [popular, setPopular] = useState<{ id: string; title: string; authors: string[]; categories: string[]; source_url: string | null; star_count: number; citation_count: number; starred: boolean }[]>([]);
+  const [period, setPeriod] = useState<"week" | "month" | "year" | "all">("month");
   const [people, setPeople] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -62,6 +65,27 @@ export default function ExplorePage() {
     };
     fetchRecs();
   }, [user, tab]);
+
+  // Fetch popular papers
+  useEffect(() => {
+    if (tab !== "popular") return;
+    const fetchPopular = async () => {
+      setLoading(true);
+      try {
+        const token = user ? await getToken() : null;
+        const res = await fetch(`/api/feed/popular?period=${period}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const data = await res.json();
+        setPopular(data.papers || []);
+      } catch (e) {
+        console.error("Failed to fetch popular:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPopular();
+  }, [user, tab, period]);
 
   useEffect(() => {
     if (tab !== "people") return;
@@ -155,6 +179,17 @@ export default function ExplorePage() {
               For You
             </button>
             <button
+              onClick={() => setTab("popular")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase transition-colors ${
+                tab === "popular"
+                  ? "bg-accent text-bg"
+                  : "text-text-dim hover:text-text"
+              }`}
+            >
+              <Flame size={10} />
+              Popular
+            </button>
+            <button
               onClick={() => setTab("people")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase transition-colors ${
                 tab === "people"
@@ -241,6 +276,87 @@ export default function ExplorePage() {
               ))}
             </div>
           )
+        ) : tab === "popular" ? (
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              {(["week", "month", "year", "all"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`px-3 py-1.5 text-[10px] tracking-wider uppercase border transition-colors ${
+                    period === p
+                      ? "border-accent text-accent"
+                      : "border-border text-text-dim hover:text-text hover:border-border-hover"
+                  }`}
+                >
+                  {p === "all" ? "All Time" : p === "week" ? "This Week" : p === "month" ? "This Month" : "This Year"}
+                </button>
+              ))}
+            </div>
+            {popular.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-text-dim text-xs tracking-wider">No papers found for this period.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {popular.map((paper, i) => (
+                  <div
+                    key={paper.id}
+                    className="border border-border p-4 hover:border-border-hover transition-colors"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-lg font-bold text-text-dim/30 w-6 text-right shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-medium text-accent leading-tight">
+                          {paper.title}
+                        </h3>
+                        <p className="text-[10px] text-text-muted mt-1">
+                          {(paper.authors as string[])?.slice(0, 3).join(", ")}
+                          {(paper.authors as string[])?.length > 3 && " et al."}
+                        </p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="text-[9px] text-text-dim tracking-wider flex items-center gap-1">
+                            <Star size={9} fill={paper.starred ? "currentColor" : "none"} className={paper.starred ? "text-yellow-400" : ""} />
+                            {paper.star_count}
+                          </span>
+                          {paper.citation_count > 0 && (
+                            <span className="text-[9px] text-text-dim tracking-wider">
+                              {paper.citation_count.toLocaleString()} citations
+                            </span>
+                          )}
+                          {paper.source_url && (
+                            <a
+                              href={paper.source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-text-dim hover:text-text transition-colors"
+                            >
+                              <ExternalLink size={10} />
+                            </a>
+                          )}
+                          {user && (
+                            <button
+                              onClick={() => handleAddToLibrary(paper.source_url || `https://arxiv.org/abs/${paper.id}`, paper.id)}
+                              disabled={addingPaper === paper.id || addedPapers.has(paper.id)}
+                              className={`text-[9px] tracking-wider uppercase px-2 py-0.5 border transition-colors ${
+                                addedPapers.has(paper.id)
+                                  ? "border-accent/50 text-accent"
+                                  : "border-border text-text-dim hover:border-accent hover:text-accent"
+                              }`}
+                            >
+                              {addedPapers.has(paper.id) ? "Added" : addingPaper === paper.id ? "..." : "+ Add"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         ) : /* People tab */
         people.length === 0 ? (
           <div className="text-center py-12">
