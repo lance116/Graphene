@@ -3,6 +3,8 @@ import { supabase } from "@/lib/supabase";
 import { fetchArxivPaper } from "@/lib/arxiv";
 import { getUser } from "@/lib/auth";
 
+export const maxDuration = 30;
+
 // GET all papers for the current user (joined with user_papers)
 export async function GET(req: NextRequest) {
   const user = await getUser(req);

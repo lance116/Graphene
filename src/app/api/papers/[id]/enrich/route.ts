@@ -3,6 +3,8 @@ import { supabase } from "@/lib/supabase";
 import Anthropic from "@anthropic-ai/sdk";
 import { getUser } from "@/lib/auth";
 
+export const maxDuration = 60;
+
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
