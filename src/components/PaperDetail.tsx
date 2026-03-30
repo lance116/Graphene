@@ -493,9 +493,8 @@ export default function PaperDetail({
                   }}
                 />
               ) : (
-                <div className="flex items-center gap-2 text-xs text-text-dim border-l-2 border-border pl-3 py-2">
-                  <Loader2 size={12} className="animate-spin" />
-                  Generating summary...
+                <div className="text-xs text-text-dim border-l-2 border-border pl-3 py-2">
+                  Click AI Review to generate
                 </div>
               )}
             </div>

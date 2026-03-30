@@ -195,12 +195,24 @@ export async function POST(req: NextRequest) {
             // Try PDF metadata title first
             if (pdfData.info?.Title && pdfData.info.Title.length > 5 && !/untitled/i.test(pdfData.info.Title)) {
               pdfTitle = pdfData.info.Title;
-            } else {
-              // Fall back to first substantial line of text
-              const lines = pdfData.text.split("\n").map((l) => l.trim()).filter((l) => l.length > 10);
+            }
+            // If metadata title looks truncated (ends with conjunction/preposition), or missing, extract from text
+            if (!pdfTitle || /\b(and|or|for|of|in|with|the|a|an)\s*$/i.test(pdfTitle)) {
+              const lines = pdfData.text.split("\n").map((l) => l.trim()).filter((l) => l.length > 5);
               if (lines.length > 0) {
-                // Title is usually the first long line, skip very short ones
-                pdfTitle = lines[0].slice(0, 200);
+                // Grab first line, then keep appending if it looks like the title continues
+                let title = lines[0];
+                for (let i = 1; i < Math.min(lines.length, 4); i++) {
+                  // Stop if we hit something that looks like authors, abstract, or a section
+                  if (/^(abstract|introduction|\d+\.?\s|by\s)/i.test(lines[i])) break;
+                  if (lines[i].includes("@") || lines[i].includes("University") || lines[i].includes("Institute")) break;
+                  if (/\b(and|or|for|of|in|with|the|a|an)\s*$/i.test(title)) {
+                    title += " " + lines[i];
+                  } else {
+                    break;
+                  }
+                }
+                pdfTitle = title.slice(0, 300);
               }
             }
           } catch (e) {
