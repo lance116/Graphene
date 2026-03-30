@@ -81,18 +81,24 @@ export async function POST(
         }
       } catch {}
     }
-    // Fall back to PDF
-    if (extractedText.length < 200 && paper.pdf_url) {
-      try {
-        const pdfRes = await fetch(paper.pdf_url);
-        if (pdfRes.ok) {
-          const buffer = Buffer.from(await pdfRes.arrayBuffer());
-          const pdfParse = await import("pdf-parse");
-          const parse = typeof pdfParse === "function" ? pdfParse : (pdfParse as { default: Function }).default;
-          const pdfData = await (parse as (buf: Buffer) => Promise<{ text: string }>)(buffer);
-          extractedText = pdfData.text;
-        }
-      } catch {}
+    // Fall back to PDF — try stored copy first, then original source URL
+    if (extractedText.length < 200) {
+      const pdfUrls = [paper.pdf_url, paper.source_url].filter(Boolean);
+      for (const pdfUrl of pdfUrls) {
+        if (extractedText.length >= 200) break;
+        try {
+          const pdfRes = await fetch(pdfUrl!, { signal: AbortSignal.timeout(15000) });
+          if (pdfRes.ok) {
+            const buffer = Buffer.from(await pdfRes.arrayBuffer());
+            const pdfParse = await import("pdf-parse");
+            const parse = typeof pdfParse === "function" ? pdfParse : (pdfParse as { default: Function }).default;
+            const pdfData = await (parse as (buf: Buffer) => Promise<{ text: string }>)(buffer);
+            if (pdfData.text.length > extractedText.length) {
+              extractedText = pdfData.text;
+            }
+          }
+        } catch {}
+      }
     }
   } else {
     // arXiv: try HTML then PDF
@@ -136,8 +142,15 @@ export async function POST(
       };
 
       // Metadata + categories (web papers) or just categories (arxiv)
+      const needsMeta = isWebPaper && (
+        extractedText.length > 100 ||
+        authors.length === 0 ||
+        !title ||
+        title.startsWith("web-") ||
+        /^\d[\d_-]+\d$/.test(title) // garbage filename-derived titles like "657045057_451752..."
+      );
       const metaPromise = (async () => {
-        if (isWebPaper && extractedText.length > 100) {
+        if (needsMeta && (extractedText.length > 100 || abstract)) {
           try {
             const metaMsg = await client.messages.create({
               model: "claude-haiku-4-5-20251001",
@@ -147,7 +160,7 @@ export async function POST(
                 content: `Extract metadata from this paper. Return ONLY JSON:
 {"title":"...","authors":["..."],"abstract":"one paragraph summary","categories":["pick 2-4 from: AI, Machine Learning, NLP, Computer Vision, Reinforcement Learning, Robotics, Neuroscience, Software Engineering, Systems, Security, Databases, HCI, Optimization, Mathematics, Physics, Biology, Healthcare, Finance, Education, Ethics"],"published":"YYYY-MM-DD or null"}
 
-${extractedText.slice(0, 6000)}`,
+${extractedText.length > 100 ? extractedText.slice(0, 6000) : `Title (may be wrong): ${title}\nAbstract: ${abstract || "unknown"}`}`,
               }],
             });
             const metaText = metaMsg.content[0].type === "text" ? metaMsg.content[0].text : "{}";
