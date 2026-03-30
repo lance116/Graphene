@@ -107,58 +107,7 @@ export async function POST(
 
   const contextText = extractedText.length > 500 ? extractedText.slice(0, 15000) : abstract || "";
 
-  // --- Step 2: Single call for metadata + categories (web papers) or just categories (arxiv) ---
-  if (isWebPaper && extractedText.length > 100) {
-    try {
-      const metaMsg = await client.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 512,
-        messages: [{
-          role: "user",
-          content: `Extract metadata from this paper. Return ONLY JSON:
-{"title":"...","authors":["..."],"abstract":"one paragraph summary","categories":["pick 2-4 from: AI, Machine Learning, NLP, Computer Vision, Reinforcement Learning, Robotics, Neuroscience, Software Engineering, Systems, Security, Databases, HCI, Optimization, Mathematics, Physics, Biology, Healthcare, Finance, Education, Ethics"],"published":"YYYY-MM-DD or null"}
-
-${extractedText.slice(0, 6000)}`,
-        }],
-      });
-      const metaText = metaMsg.content[0].type === "text" ? metaMsg.content[0].text : "{}";
-      const jsonMatch = metaText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const meta = JSON.parse(jsonMatch[0]);
-        title = meta.title || title;
-        authors = meta.authors || authors;
-        abstract = meta.abstract || abstract;
-        categories = meta.categories || categories;
-        published = meta.published || published;
-        await supabase.from("papers").update({ title, authors, abstract, categories, published }).eq("id", id);
-      }
-    } catch (e) {
-      console.error("Metadata extraction failed:", e);
-    }
-  } else if (abstract || title) {
-    // arXiv or web paper with no text — just get categories
-    try {
-      const catMsg = await client.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 128,
-        messages: [{
-          role: "user",
-          content: `Return 2-4 category labels as a JSON array. Pick from: "AI", "Machine Learning", "NLP", "Computer Vision", "Reinforcement Learning", "Robotics", "Neuroscience", "Software Engineering", "Systems", "Security", "Databases", "HCI", "Optimization", "Mathematics", "Physics", "Biology", "Healthcare", "Finance", "Education", "Ethics". Return ONLY the JSON array.\n\nTitle: ${title}\nAbstract: ${abstract?.slice(0, 500) || ""}`,
-        }],
-      });
-      const catText = catMsg.content[0].type === "text" ? catMsg.content[0].text : "[]";
-      const catMatch = catText.match(/\[[\s\S]*\]/);
-      if (catMatch) {
-        const aiCats = JSON.parse(catMatch[0]);
-        if (Array.isArray(aiCats) && aiCats.length > 0) {
-          categories = aiCats;
-          await supabase.from("papers").update({ categories }).eq("id", id);
-        }
-      }
-    } catch {}
-  }
-
-  // --- Step 3: Stream summary + run BS score & connections in parallel ---
+  // --- Step 2: ALL calls in parallel ---
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -166,11 +115,60 @@ ${extractedText.slice(0, 6000)}`,
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       };
 
-      if (title !== paper.title || categories !== paper.categories) {
-        send("metadata", { title, authors, abstract, categories, published });
-      }
+      // Metadata + categories (web papers) or just categories (arxiv)
+      const metaPromise = (async () => {
+        if (isWebPaper && extractedText.length > 100) {
+          try {
+            const metaMsg = await client.messages.create({
+              model: "claude-sonnet-4-6",
+              max_tokens: 512,
+              messages: [{
+                role: "user",
+                content: `Extract metadata from this paper. Return ONLY JSON:
+{"title":"...","authors":["..."],"abstract":"one paragraph summary","categories":["pick 2-4 from: AI, Machine Learning, NLP, Computer Vision, Reinforcement Learning, Robotics, Neuroscience, Software Engineering, Systems, Security, Databases, HCI, Optimization, Mathematics, Physics, Biology, Healthcare, Finance, Education, Ethics"],"published":"YYYY-MM-DD or null"}
 
-      // Launch all three in parallel
+${extractedText.slice(0, 6000)}`,
+              }],
+            });
+            const metaText = metaMsg.content[0].type === "text" ? metaMsg.content[0].text : "{}";
+            const jsonMatch = metaText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const meta = JSON.parse(jsonMatch[0]);
+              title = meta.title || title;
+              authors = meta.authors || authors;
+              abstract = meta.abstract || abstract;
+              categories = meta.categories || categories;
+              published = meta.published || published;
+              await supabase.from("papers").update({ title, authors, abstract, categories, published }).eq("id", id);
+              send("metadata", { title, authors, abstract, categories, published });
+            }
+          } catch (e) {
+            console.error("Metadata extraction failed:", e);
+          }
+        } else if (abstract || title) {
+          try {
+            const catMsg = await client.messages.create({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 128,
+              messages: [{
+                role: "user",
+                content: `Return 2-4 category labels as a JSON array. Pick from: "AI", "Machine Learning", "NLP", "Computer Vision", "Reinforcement Learning", "Robotics", "Neuroscience", "Software Engineering", "Systems", "Security", "Databases", "HCI", "Optimization", "Mathematics", "Physics", "Biology", "Healthcare", "Finance", "Education", "Ethics". Return ONLY the JSON array.\n\nTitle: ${title}\nAbstract: ${abstract?.slice(0, 500) || ""}`,
+              }],
+            });
+            const catText = catMsg.content[0].type === "text" ? catMsg.content[0].text : "[]";
+            const catMatch = catText.match(/\[[\s\S]*\]/);
+            if (catMatch) {
+              const aiCats = JSON.parse(catMatch[0]);
+              if (Array.isArray(aiCats) && aiCats.length > 0) {
+                categories = aiCats;
+                await supabase.from("papers").update({ categories }).eq("id", id);
+                send("metadata", { title, authors, abstract, categories, published });
+              }
+            }
+          } catch {}
+        }
+      })();
+
       const summaryPromise = (async () => {
         try {
           const summaryStream = client.messages.stream({
@@ -280,7 +278,7 @@ ${contextText.slice(0, 10000)}`,
         }
       })();
 
-      await Promise.all([summaryPromise, bsPromise, connPromise]);
+      await Promise.all([metaPromise, summaryPromise, bsPromise, connPromise]);
 
       send("done", {});
       controller.close();
