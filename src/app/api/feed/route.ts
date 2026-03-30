@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getUser } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 // GET public feed - trending and recent papers
 export async function GET(req: NextRequest) {
   const user = await getUser(req);
@@ -10,19 +12,74 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get("limit") || "30"), 100);
   const offset = parseInt(searchParams.get("offset") || "0");
 
-  // Get public papers
-  const { data: papers, error } = await supabase
-    .from("papers")
-    .select("id, title, authors, abstract, categories, published, added_at, bs_score, source_url")
-    .eq("is_public", true)
-    .order("added_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+  let paperIds: string[];
+  let papers: any[];
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!papers || papers.length === 0) return NextResponse.json({ papers: [] });
+  if (sort === "stars" || sort === "trending") {
+    // For star-based sorts: get top starred papers first, then fetch their details
+    const { data: allStars } = await supabase
+      .from("paper_stars")
+      .select("paper_id");
+
+    // Count stars per paper
+    const countMap: Record<string, number> = {};
+    (allStars || []).forEach((s) => {
+      countMap[s.paper_id] = (countMap[s.paper_id] || 0) + 1;
+    });
+
+    // Get all public papers (just ids + scores for sorting)
+    const { data: allPublic } = await supabase
+      .from("papers")
+      .select("id, added_at, bs_score")
+      .eq("is_public", true);
+
+    if (!allPublic || allPublic.length === 0) {
+      return NextResponse.json({ papers: [] });
+    }
+
+    // Sort by stars (then interesting, then recency)
+    const interestingOf = (p: any) => p.bs_score?.interesting ?? 0;
+    allPublic.sort((a, b) => {
+      const starDiff = (countMap[b.id] || 0) - (countMap[a.id] || 0);
+      if (starDiff !== 0) return starDiff;
+      if (sort === "trending") {
+        return new Date(b.added_at).getTime() - new Date(a.added_at).getTime();
+      }
+      return interestingOf(b) - interestingOf(a);
+    });
+
+    // Paginate
+    const page = allPublic.slice(offset, offset + limit);
+    paperIds = page.map((p) => p.id);
+
+    // Fetch full paper data for this page
+    const { data: fullPapers, error } = await supabase
+      .from("papers")
+      .select("id, title, authors, abstract, categories, published, added_at, bs_score, source_url")
+      .in("id", paperIds);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Preserve sort order
+    const paperMap = Object.fromEntries((fullPapers || []).map((p) => [p.id, p]));
+    papers = paperIds.map((id) => paperMap[id]).filter(Boolean);
+  } else {
+    // Recent: just sort by added_at from DB
+    const { data, error } = await supabase
+      .from("papers")
+      .select("id, title, authors, abstract, categories, published, added_at, bs_score, source_url")
+      .eq("is_public", true)
+      .order("added_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    papers = data || [];
+    paperIds = papers.map((p) => p.id);
+  }
+
+  if (papers.length === 0) return NextResponse.json({ papers: [] });
 
   // Get star counts for these papers
-  const paperIds = papers.map((p) => p.id);
   const { data: starCounts } = await supabase
     .from("paper_stars")
     .select("paper_id")
@@ -51,7 +108,6 @@ export async function GET(req: NextRequest) {
     .in("paper_id", paperIds)
     .order("added_at", { ascending: true });
 
-  // Get first adder per paper
   const firstAdderMap: Record<string, string> = {};
   (firstAdders || []).forEach((ua) => {
     if (!firstAdderMap[ua.paper_id]) {
@@ -59,7 +115,6 @@ export async function GET(req: NextRequest) {
     }
   });
 
-  // Get profiles for first adders
   const adderIds = [...new Set(Object.values(firstAdderMap))];
   let profileMap: Record<string, { username: string; display_name: string | null; is_verified: boolean }> = {};
   if (adderIds.length > 0) {
@@ -72,8 +127,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Enrich papers with star data and contributor profile
-  let enriched = papers.map((p) => {
+  const enriched = papers.map((p) => {
     const adderId = firstAdderMap[p.id];
     return {
       ...p,
@@ -82,13 +136,6 @@ export async function GET(req: NextRequest) {
       owner: adderId ? profileMap[adderId] || null : null,
     };
   });
-
-  // Sort
-  if (sort === "trending") {
-    enriched.sort((a, b) => b.star_count - a.star_count || new Date(b.added_at).getTime() - new Date(a.added_at).getTime());
-  } else if (sort === "stars") {
-    enriched.sort((a, b) => b.star_count - a.star_count);
-  }
 
   return NextResponse.json({ papers: enriched });
 }

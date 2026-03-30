@@ -68,6 +68,7 @@ export default function ExplorePage() {
         const token = user ? await getToken() : null;
         const res = await fetch(`/api/feed?sort=${sort}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
+          cache: "no-store",
         });
         const data = await res.json();
         setPapers(data.papers || []);
@@ -260,8 +261,8 @@ export default function ExplorePage() {
                       <span className="text-[9px]">{paper.star_count}</span>
                     </button>
 
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-xs sm:text-sm font-medium text-accent leading-tight">
+                    <Link href={`/paper/${encodeURIComponent(paper.id)}`} className="flex-1 min-w-0">
+                      <h3 className="text-xs sm:text-sm font-medium text-accent leading-tight hover:underline">
                         {decodeEntities(paper.title)}
                       </h3>
                       <p className="text-[10px] text-text-muted mt-1 truncate">
@@ -330,7 +331,7 @@ export default function ExplorePage() {
                           </a>
                         )}
                       </div>
-                    </div>
+                    </Link>
                   </div>
                 </div>
               ))}
