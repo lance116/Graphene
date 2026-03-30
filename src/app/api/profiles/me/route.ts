@@ -20,7 +20,6 @@ export async function GET(req: NextRequest) {
   // Try explicit username first, then derive from email
   let candidate = meta.username || meta.email?.split("@")[0] || "";
   candidate = candidate.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
-  if (candidate.includes("zach")) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   if (candidate.length < 3) candidate = "user" + Math.random().toString(36).slice(2, 8);
 
   // Find a unique username
@@ -62,9 +61,6 @@ export async function PATCH(req: NextRequest) {
     const username = body.username.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
     if (username.length < 3) {
       return NextResponse.json({ error: "Username must be at least 3 characters" }, { status: 400 });
-    }
-    if (username.includes("zach")) {
-      return NextResponse.json({ error: "Username not allowed" }, { status: 403 });
     }
     // Check uniqueness
     const { data: existing } = await supabase

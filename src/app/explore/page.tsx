@@ -48,12 +48,10 @@ type UserProfile = {
 
 export default function ExplorePage() {
   const { user, getToken } = useAuth();
-  const [tab, setTab] = useState<"foryou" | "papers" | "people">(user ? "foryou" : "papers");
-  const [papers, setPapers] = useState<FeedPaper[]>([]);
+  const [tab, setTab] = useState<"foryou" | "people">("foryou");
   const [recommended, setRecommended] = useState<{ id: string; title: string; authors: string[]; year: number; abstract: string | null; citation_count: number; source_url: string }[]>([]);
   const [people, setPeople] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sort, setSort] = useState<"trending" | "recent" | "stars">("trending");
   const [search, setSearch] = useState("");
   const [addingPaper, setAddingPaper] = useState<string | null>(null);
   const [addedPapers, setAddedPapers] = useState<Set<string>>(new Set());
@@ -86,27 +84,6 @@ export default function ExplorePage() {
   }, [user, tab]);
 
   useEffect(() => {
-    if (tab !== "papers") return;
-    const fetchFeed = async () => {
-      setLoading(true);
-      try {
-        const token = user ? await getToken() : null;
-        const res = await fetch(`/api/feed?sort=${sort}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          cache: "no-store",
-        });
-        const data = await res.json();
-        setPapers(data.papers || []);
-      } catch (e) {
-        console.error("Failed to fetch feed:", e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchFeed();
-  }, [sort, user, tab]);
-
-  useEffect(() => {
     if (tab !== "people") return;
     const fetchPeople = async () => {
       setLoading(true);
@@ -124,53 +101,6 @@ export default function ExplorePage() {
     };
     fetchPeople();
   }, [searchDebounced, tab]);
-
-  const handleToggleStar = async (paperId: string) => {
-    if (!user) return;
-    const paper = papers.find((p) => p.id === paperId);
-    if (!paper) return;
-
-    // Optimistic update
-    setPapers((prev) =>
-      prev.map((p) =>
-        p.id === paperId
-          ? { ...p, starred: !p.starred, star_count: p.star_count + (p.starred ? -1 : 1) }
-          : p
-      )
-    );
-
-    const token = await getToken();
-    try {
-      const res = await fetch(
-        `/api/papers/${encodeURIComponent(paperId)}/star`,
-        {
-          method: paper.starred ? "DELETE" : "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        }
-      );
-      const data = await res.json();
-      // Reconcile with server state
-      setPapers((prev) =>
-        prev.map((p) =>
-          p.id === paperId
-            ? { ...p, starred: data.starred, star_count: data.star_count }
-            : p
-        )
-      );
-    } catch {
-      // Revert on error
-      setPapers((prev) =>
-        prev.map((p) =>
-          p.id === paperId
-            ? { ...p, starred: paper.starred, star_count: paper.star_count }
-            : p
-        )
-      );
-    }
-  };
 
   const handleAddToLibrary = async (url: string, paperId: string) => {
     if (!user || addingPaper || addedPapers.has(paperId)) return;
@@ -192,17 +122,6 @@ export default function ExplorePage() {
       setAddingPaper(null);
     }
   };
-
-  const filteredPapers = searchDebounced
-    ? papers.filter((p) => {
-        const q = searchDebounced.toLowerCase();
-        return (
-          p.title.toLowerCase().includes(q) ||
-          (p.authors as string[])?.some((a) => a.toLowerCase().includes(q)) ||
-          (p.categories as string[])?.some((c) => c.toLowerCase().includes(q))
-        );
-      })
-    : papers;
 
   return (
     <div className="min-h-screen bg-bg">
@@ -234,7 +153,7 @@ export default function ExplorePage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={tab === "papers" ? "Search papers..." : "Search users..."}
+              placeholder={tab === "people" ? "Search users..." : "Search recommendations..."}
               className="w-full bg-bg border border-border pl-9 pr-4 py-2 text-xs text-text focus:outline-none focus:border-border-hover transition-all"
             />
           </div>
@@ -244,29 +163,16 @@ export default function ExplorePage() {
         <div className="flex items-center justify-between px-4 sm:px-6 pb-2 gap-2">
           {/* Tabs */}
           <div className="flex border border-border">
-            {user && (
-              <button
-                onClick={() => setTab("foryou")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase transition-colors ${
-                  tab === "foryou"
-                    ? "bg-accent text-bg"
-                    : "text-text-dim hover:text-text"
-                }`}
-              >
-                <Sparkles size={10} />
-                For You
-              </button>
-            )}
             <button
-              onClick={() => setTab("papers")}
+              onClick={() => setTab("foryou")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase transition-colors ${
-                tab === "papers"
+                tab === "foryou"
                   ? "bg-accent text-bg"
                   : "text-text-dim hover:text-text"
               }`}
             >
-              <FileText size={10} />
-              Papers
+              <Sparkles size={10} />
+              For You
             </button>
             <button
               onClick={() => setTab("people")}
@@ -280,28 +186,6 @@ export default function ExplorePage() {
               People
             </button>
           </div>
-
-          {/* Sort (papers only) */}
-          {tab === "papers" && (
-            <div className="flex items-center gap-1 sm:gap-2">
-              {(["trending", "recent", "stars"] as const).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSort(s)}
-                  className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 text-[10px] tracking-wider uppercase border transition-colors ${
-                    sort === s
-                      ? "border-accent text-accent"
-                      : "border-border text-text-dim hover:text-text hover:border-border-hover"
-                  }`}
-                >
-                  {s === "trending" && <TrendingUp size={10} />}
-                  {s === "recent" && <Clock size={10} />}
-                  {s === "stars" && <Star size={10} />}
-                  <span className="hidden sm:inline">{s}</span>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </header>
 

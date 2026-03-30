@@ -1,19 +1,41 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { supabase as adminSupabase } from "./supabase";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-const BANNED_EMAILS = new Set([
-  "zyu31415@gmail.com",
-  "zach@traverse.so",
-  "zach@clice.ai",
-]);
+async function isBanned(userId: string, email?: string): Promise<boolean> {
+  // Check by user_id
+  const { data: byId } = await adminSupabase
+    .from("banned_users")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  if (byId) return true;
 
-const BANNED_IDS = new Set([
-  "6055cb9f-4213-4994-8a79-cc8be83a34fd",
-  "6e8cfd31-289c-4198-85ee-490ce4fb582f",
-]);
+  if (email) {
+    const lower = email.toLowerCase();
+    // Check by exact email
+    const { data: byEmail } = await adminSupabase
+      .from("banned_users")
+      .select("id")
+      .eq("email", lower)
+      .limit(1)
+      .maybeSingle();
+    if (byEmail) return true;
+
+    // Check by pattern (substring match)
+    const { data: patterns } = await adminSupabase
+      .from("banned_users")
+      .select("pattern")
+      .not("pattern", "is", null);
+    if (patterns?.some((row) => lower.includes(row.pattern))) return true;
+  }
+
+  return false;
+}
 
 export async function getUser(req: NextRequest): Promise<{ id: string; email?: string; user_metadata: Record<string, any> } | null> {
   const authHeader = req.headers.get("authorization");
@@ -24,10 +46,6 @@ export async function getUser(req: NextRequest): Promise<{ id: string; email?: s
   const { data: { user }, error } = await supabase.auth.getUser(token);
 
   if (error || !user) return null;
-  if (BANNED_IDS.has(user.id)) return null;
-  if (user.email) {
-    const email = user.email.toLowerCase();
-    if (BANNED_EMAILS.has(email) || email.includes("zach")) return null;
-  }
+  if (await isBanned(user.id, user.email)) return null;
   return { id: user.id, email: user.email, user_metadata: user.user_metadata };
 }
