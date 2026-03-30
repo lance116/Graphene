@@ -107,30 +107,24 @@ async function importFromBibtex(
 ): Promise<{ id: string; title: string; alreadyExists: boolean }> {
   const sourceUrl = deriveUrl(entry);
 
-  if (sourceUrl) {
-    const { data: existing } = await supabase
-      .from("papers")
-      .select("id, title")
-      .eq("source_url", sourceUrl)
+  const existing = await findExistingPaper(entry.title, sourceUrl);
+
+  if (existing) {
+    const { data: existingLink } = await supabase
+      .from("user_papers")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("paper_id", existing.id)
       .maybeSingle();
 
-    if (existing) {
-      const { data: existingLink } = await supabase
-        .from("user_papers")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("paper_id", existing.id)
-        .maybeSingle();
-
-      if (!existingLink) {
-        await supabase.from("user_papers").insert({
-          user_id: userId,
-          paper_id: existing.id,
-        });
-      }
-
-      return { id: existing.id, title: existing.title, alreadyExists: true };
+    if (!existingLink) {
+      await supabase.from("user_papers").insert({
+        user_id: userId,
+        paper_id: existing.id,
+      });
     }
+
+    return { id: existing.id, title: existing.title, alreadyExists: true };
   }
 
   let published: string | null = null;
@@ -161,6 +155,36 @@ async function importFromBibtex(
   });
 
   return { id, title: entry.title, alreadyExists: false };
+}
+
+async function findExistingPaper(
+  title: string,
+  sourceUrl: string | null
+): Promise<{ id: string; title: string } | null> {
+  if (sourceUrl) {
+    const { data } = await supabase
+      .from("papers")
+      .select("id, title")
+      .eq("source_url", sourceUrl)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (normalizedTitle.length < 10) return null;
+
+  const { data: candidates } = await supabase
+    .from("papers")
+    .select("id, title")
+    .ilike("title", `%${title.slice(0, 40)}%`)
+    .limit(10);
+
+  if (!candidates) return null;
+
+  return candidates.find((p) => {
+    const normalized = p.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return normalized === normalizedTitle;
+  }) || null;
 }
 
 function extractArxivId(url: string | null): string | null {

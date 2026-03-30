@@ -4,7 +4,7 @@ import { Paper } from "@/lib/supabase";
 import { FileText } from "lucide-react";
 
 export default function PaperReader({ paper }: { paper: Paper }) {
-  const isArxiv = !paper.id.startsWith("web-");
+  const isArxiv = !paper.id.startsWith("web-") && !paper.id.startsWith("bib-");
   const pdfUrl = isArxiv
     ? `https://arxiv.org/pdf/${paper.id}`
     : paper.pdf_url || paper.source_url;

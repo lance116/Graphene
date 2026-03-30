@@ -21,7 +21,7 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const isArxiv = !id.startsWith("web-");
+  const isArxiv = !id.startsWith("web-") && !id.startsWith("bib-");
 
   if (isArxiv) {
     const htmlUrl = `https://arxiv.org/html/${id}`;

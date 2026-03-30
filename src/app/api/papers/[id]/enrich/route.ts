@@ -36,7 +36,7 @@ export async function POST(
   }
 
   // For non-arxiv PDFs, extract metadata first
-  const isWebPaper = id.startsWith("web-");
+  const isWebPaper = id.startsWith("web-") || id.startsWith("bib-");
   let title = paper.title;
   let abstract = paper.abstract || "";
   let authors = paper.authors || [];
@@ -150,7 +150,7 @@ export async function POST(
 
   // Fetch full paper text for better AI context
   let fullText = "";
-  const isArxiv = !id.startsWith("web-");
+  const isArxiv = !id.startsWith("web-") && !id.startsWith("bib-");
   if (isArxiv) {
     // Try HTML version first (cleaner text)
     try {
