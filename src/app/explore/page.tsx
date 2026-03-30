@@ -319,17 +319,6 @@ export default function ExplorePage() {
                               {humanCategory(cat)}
                             </span>
                           ))}
-                        {paper.owner && (
-                          <Link
-                            href={`/profile/${paper.owner.username}`}
-                            className="text-[9px] text-text-dim hover:text-accent transition-colors inline-flex items-center gap-0.5"
-                          >
-                            @{paper.owner.username}
-                            {paper.owner.is_verified && (
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="text-blue-400 shrink-0"><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" stroke="currentColor" strokeWidth="2" fill="currentColor" fillOpacity="0.15"/></svg>
-                            )}
-                          </Link>
-                        )}
                         {paper.source_url && (
                           <a
                             href={paper.source_url}
