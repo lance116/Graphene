@@ -124,5 +124,19 @@ export async function DELETE(
     .eq("paper_id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // If no other users have this paper, delete the shared record too
+  const { count } = await supabase
+    .from("user_papers")
+    .select("*", { count: "exact", head: true })
+    .eq("paper_id", id);
+
+  if (count === 0) {
+    await supabase.from("paper_connections").delete().or(`paper_a.eq.${id},paper_b.eq.${id}`);
+    await supabase.from("paper_stars").delete().eq("paper_id", id);
+    await supabase.from("paper_claims").delete().eq("paper_id", id);
+    await supabase.from("papers").delete().eq("id", id);
+  }
+
   return NextResponse.json({ success: true });
 }
