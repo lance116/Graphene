@@ -122,7 +122,7 @@ export async function POST(
   }
 
   // Generate AI categories for ALL papers (replace arxiv codes with human labels)
-  if (abstract || title !== paper.title) {
+  if (abstract || title) {
     try {
       const catMsg = await client.messages.create({
         model: "claude-opus-4-6",

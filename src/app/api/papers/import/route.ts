@@ -135,6 +135,11 @@ async function importFromBibtex(
 
   const id = `bib-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+  let pdfUrl: string | null = null;
+  if (entry.doi) {
+    pdfUrl = await resolvePdfFromDoi(entry.doi);
+  }
+
   const { error: insertError } = await supabase.from("papers").insert({
     id,
     title: entry.title,
@@ -142,7 +147,7 @@ async function importFromBibtex(
     abstract: entry.abstract,
     published,
     source_url: sourceUrl,
-    pdf_url: null,
+    pdf_url: pdfUrl,
     categories: entry.primaryclass ? [entry.primaryclass] : [],
     is_public: true,
   });
@@ -155,6 +160,26 @@ async function importFromBibtex(
   });
 
   return { id, title: entry.title, alreadyExists: false };
+}
+
+async function resolvePdfFromDoi(doi: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://doi.org/${doi}`, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(5000),
+    });
+    const finalUrl = res.url;
+
+    if (finalUrl.includes("arxiv.org")) {
+      const match = finalUrl.match(/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,6})/);
+      if (match) return `https://arxiv.org/pdf/${match[1]}`;
+    }
+
+    if (finalUrl.endsWith(".pdf") || finalUrl.includes("/pdf/")) {
+      return finalUrl;
+    }
+  } catch {}
+  return null;
 }
 
 async function findExistingPaper(
