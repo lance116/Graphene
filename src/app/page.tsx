@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Paper, PaperConnection, ChatMessage } from "@/lib/supabase";
+import { BibtexEntry } from "@/lib/bibtex";
 import PaperList from "@/components/PaperList";
 import PaperDetail from "@/components/PaperDetail";
 import AddPaperModal from "@/components/AddPaperModal";
@@ -216,6 +217,42 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
         }
       })
       .catch(console.error);
+  };
+
+  const handleImportBibtex = async (entries: BibtexEntry[]) => {
+    setShowAddModal(false);
+    setView("list");
+    setAdding(true);
+
+    try {
+      const res = await authFetch("/api/papers/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("Import failed:", data.error);
+        return;
+      }
+
+      await fetchPapers();
+
+      const newPapers = (data.imported || []).filter(
+        (p: { alreadyExists: boolean }) => !p.alreadyExists
+      );
+      for (const p of newPapers) {
+        enrichPaper(p.id);
+      }
+
+      if (data.imported?.length > 0) {
+        setSelectedPaperId(data.imported[0].id);
+      }
+    } catch (e) {
+      console.error("Failed to import BibTeX:", e);
+    } finally {
+      setAdding(false);
+    }
   };
 
   // Toggle read status
@@ -556,6 +593,7 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onAdd={handleAddPaper}
+        onImportBibtex={handleImportBibtex}
       />
 
     </div>

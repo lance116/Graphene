@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { X, Plus, Search, Loader2, ExternalLink } from "lucide-react";
+import { useState, useRef } from "react";
+import { X, Plus, Search, Loader2, ExternalLink, Upload, FileText } from "lucide-react";
+import { parseBibtex, BibtexEntry } from "@/lib/bibtex";
 
 type ArxivResult = {
   id: string;
@@ -18,10 +19,12 @@ export default function AddPaperModal({
   isOpen,
   onClose,
   onAdd,
+  onImportBibtex,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (url: string) => Promise<void>;
+  onImportBibtex: (entries: BibtexEntry[]) => Promise<void>;
 }) {
   const [url, setUrl] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -29,7 +32,12 @@ export default function AddPaperModal({
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"url" | "search">("url");
+  const [tab, setTab] = useState<"url" | "search" | "bibtex">("url");
+
+  const [bibtexInput, setBibtexInput] = useState("");
+  const [parsedEntries, setParsedEntries] = useState<BibtexEntry[]>([]);
+  const [parseError, setParseError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
@@ -74,6 +82,53 @@ export default function AddPaperModal({
     }
   };
 
+  const handleParseBibtex = (text: string) => {
+    setBibtexInput(text);
+    setParseError("");
+    if (!text.trim()) {
+      setParsedEntries([]);
+      return;
+    }
+    try {
+      const entries = parseBibtex(text);
+      if (entries.length === 0) {
+        setParseError("No valid BibTeX entries found");
+      }
+      setParsedEntries(entries);
+    } catch {
+      setParseError("Failed to parse BibTeX");
+      setParsedEntries([]);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      handleParseBibtex(text);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleImport = async () => {
+    if (parsedEntries.length === 0) return;
+    setLoading(true);
+    setError("");
+    try {
+      await onImportBibtex(parsedEntries);
+      setBibtexInput("");
+      setParsedEntries([]);
+      onClose();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to import");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
       <div className="w-full max-w-2xl bg-surface border border-border animate-fade-in">
@@ -112,6 +167,16 @@ export default function AddPaperModal({
           >
             Search arXiv
           </button>
+          <button
+            onClick={() => setTab("bibtex")}
+            className={`flex-1 px-4 py-3 text-xs tracking-widest uppercase transition-colors ${
+              tab === "bibtex"
+                ? "text-accent border-b border-accent"
+                : "text-text-muted hover:text-text"
+            }`}
+          >
+            Import BibTeX
+          </button>
         </div>
 
         <div className="p-6">
@@ -144,7 +209,7 @@ export default function AddPaperModal({
                 </button>
               </div>
             </div>
-          ) : (
+          ) : tab === "search" ? (
             <div>
               <label className="block text-xs text-text-muted mb-2 tracking-wider uppercase">
                 Search Query
@@ -207,6 +272,85 @@ export default function AddPaperModal({
                   </div>
                 ))}
               </div>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs text-text-muted tracking-wider uppercase">
+                  Paste BibTeX or upload .bib file
+                </label>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-xs tracking-wider uppercase hover:bg-surface-2 transition-colors"
+                >
+                  <Upload size={12} />
+                  Upload .bib
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".bib,.bibtex,text/plain"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </div>
+
+              <textarea
+                value={bibtexInput}
+                onChange={(e) => handleParseBibtex(e.target.value)}
+                placeholder={`@article{doe2024example,
+  title={Example Paper Title},
+  author={Doe, Jane and Smith, John},
+  journal={Nature},
+  year={2024},
+  doi={10.1234/example}
+}`}
+                rows={8}
+                className="w-full bg-bg border border-border px-4 py-3 text-sm text-text font-mono placeholder:text-text-dim focus:outline-none focus:border-border-hover resize-none"
+              />
+
+              {parseError && (
+                <p className="text-xs text-red-400 mt-2 tracking-wider">{parseError}</p>
+              )}
+
+              {parsedEntries.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs text-text-muted mb-2 tracking-wider">
+                    {parsedEntries.length} {parsedEntries.length === 1 ? "entry" : "entries"} found
+                  </p>
+                  <div className="max-h-40 overflow-y-auto space-y-1 mb-3">
+                    {parsedEntries.map((entry, i) => (
+                      <div
+                        key={`${entry.key}-${i}`}
+                        className="flex items-start gap-2 p-2 border border-border"
+                      >
+                        <FileText size={14} className="shrink-0 mt-0.5 text-text-muted" />
+                        <div className="min-w-0">
+                          <p className="text-sm text-text truncate">{entry.title}</p>
+                          <p className="text-xs text-text-muted truncate">
+                            {entry.authors.slice(0, 3).join(", ")}
+                            {entry.authors.length > 3 && ` +${entry.authors.length - 3}`}
+                            {entry.year && ` (${entry.year})`}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={handleImport}
+                    disabled={loading}
+                    className="w-full px-4 py-3 bg-accent text-bg text-xs font-medium tracking-wider uppercase hover:bg-text disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Plus size={14} />
+                    )}
+                    Import {parsedEntries.length} {parsedEntries.length === 1 ? "Paper" : "Papers"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
