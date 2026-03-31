@@ -17,6 +17,9 @@ export default function PaperReader({ paper }: { paper: Paper }) {
           theme: {
             preference: "dark",
           },
+          zoom: {
+            defaultZoomLevel: "fit-width",
+          },
         }}
         className="w-full h-full"
       />
