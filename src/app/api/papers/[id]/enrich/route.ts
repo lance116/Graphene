@@ -243,7 +243,7 @@ ${extractedText.length > 100 ? extractedText.slice(0, 6000) : `Title (may be wro
   "credibility": <0-100, 0=established authors, 100=unknown making big claims>,
   "reproducibility": <0-100, 0=code+data released, 100=impossible to verify>,
   "verdict": "<one brutally honest sentence>",
-  "interesting": <0-100, judge the IDEA not execution>,
+  "interesting": <0-100, 0=boring, 100=fascinating. Judge the IDEA not execution>,
   "interesting_why": "<one sentence>",
   "legitness_why": "<one sentence>"
 }
