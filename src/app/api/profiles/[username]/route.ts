@@ -98,16 +98,13 @@ export async function GET(
     .eq("user_id", profile.id)
     .eq("is_read", true);
 
-  // Get read dates for heatmap (last year)
-  const oneYearAgo = new Date();
-  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  // Get all read dates for heatmap
   const { data: readDates } = await supabase
     .from("user_papers")
     .select("read_at")
     .eq("user_id", profile.id)
     .eq("is_read", true)
-    .not("read_at", "is", null)
-    .gte("read_at", oneYearAgo.toISOString());
+    .not("read_at", "is", null);
 
   // Activity feed: papers added, read, starred (last 6 months)
   const sixMonthsAgo = new Date();

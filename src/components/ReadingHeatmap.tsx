@@ -1,6 +1,20 @@
 "use client";
 
+import { useState } from "react";
+
 export default function ReadingHeatmap({ dates }: { dates: string[] }) {
+  const currentYear = new Date().getFullYear();
+
+  // Determine available years from data
+  const years = new Set<number>();
+  years.add(currentYear);
+  for (const d of dates) {
+    years.add(new Date(d).getFullYear());
+  }
+  const sortedYears = [...years].sort((a, b) => b - a);
+
+  const [selectedYear, setSelectedYear] = useState<number | null>(null); // null = trailing 12 months
+
   // Count papers read per day
   const counts: Record<string, number> = {};
   for (const d of dates) {
@@ -8,15 +22,28 @@ export default function ReadingHeatmap({ dates }: { dates: string[] }) {
     counts[key] = (counts[key] || 0) + 1;
   }
 
-  // Build 52 weeks of days ending today
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const dayOfWeek = today.getDay(); // 0=Sun
-  const endDate = new Date(today);
-  // Start from 52 weeks ago, aligned to Sunday
-  const startDate = new Date(today);
-  startDate.setDate(startDate.getDate() - 52 * 7 - dayOfWeek);
 
+  let startDate: Date;
+  let endDate: Date;
+
+  if (selectedYear === null) {
+    // Trailing 12 months: end at today, start 52 weeks + padding ago (aligned to Sunday)
+    endDate = new Date(today);
+    startDate = new Date(today);
+    const dayOfWeek = today.getDay();
+    startDate.setDate(startDate.getDate() - 52 * 7 - dayOfWeek);
+  } else {
+    // Full calendar year: Jan 1 to Dec 31, aligned to week boundaries
+    startDate = new Date(selectedYear, 0, 1);
+    // Align to previous Sunday
+    const janDow = startDate.getDay();
+    if (janDow > 0) startDate.setDate(startDate.getDate() - janDow);
+    endDate = new Date(selectedYear, 11, 31);
+  }
+
+  // Build weeks grid
   const weeks: { date: Date; count: number }[][] = [];
   let currentWeek: { date: Date; count: number }[] = [];
   const cursor = new Date(startDate);
@@ -32,7 +59,24 @@ export default function ReadingHeatmap({ dates }: { dates: string[] }) {
   }
   if (currentWeek.length > 0) weeks.push(currentWeek);
 
-  const maxCount = Math.max(1, ...Object.values(counts));
+  // Count only dates in the selected range for the total
+  const rangeStart = selectedYear === null
+    ? new Date(today.getFullYear() - 1, today.getMonth(), today.getDate())
+    : new Date(selectedYear, 0, 1);
+  const rangeEnd = selectedYear === null ? today : new Date(selectedYear, 11, 31);
+  const totalInRange = dates.filter((d) => {
+    const dt = new Date(d);
+    return dt >= rangeStart && dt <= rangeEnd;
+  }).length;
+
+  // Color scale based on visible range max
+  const visibleCounts = Object.entries(counts)
+    .filter(([k]) => {
+      const dt = new Date(k);
+      return dt >= startDate && dt <= endDate;
+    })
+    .map(([, v]) => v);
+  const maxCount = Math.max(1, ...visibleCounts, 1);
 
   const getColor = (count: number) => {
     if (count === 0) return "bg-surface-2";
@@ -57,13 +101,34 @@ export default function ReadingHeatmap({ dates }: { dates: string[] }) {
     }
   });
 
-  const totalRead = dates.length;
-
   return (
     <div className="border border-border p-4 mb-4 sm:mb-6">
-      <p className="text-[10px] text-text-dim tracking-[0.2em] uppercase mb-3">
-        {totalRead} paper{totalRead !== 1 ? "s" : ""} read in the last year
-      </p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[10px] text-text-dim tracking-[0.2em] uppercase">
+          {totalInRange} paper{totalInRange !== 1 ? "s" : ""} read {selectedYear === null ? "in the last year" : `in ${selectedYear}`}
+        </p>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setSelectedYear(null)}
+            className={`px-2 py-0.5 text-[9px] tracking-wider transition-colors ${
+              selectedYear === null ? "bg-accent text-bg" : "text-text-dim hover:text-text border border-border"
+            }`}
+          >
+            Last year
+          </button>
+          {sortedYears.map((y) => (
+            <button
+              key={y}
+              onClick={() => setSelectedYear(y)}
+              className={`px-2 py-0.5 text-[9px] tracking-wider transition-colors ${
+                selectedYear === y ? "bg-accent text-bg" : "text-text-dim hover:text-text border border-border"
+              }`}
+            >
+              {y}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="overflow-x-auto">
         <div className="inline-flex flex-col gap-0.5" style={{ minWidth: "max-content" }}>
           {/* Month labels */}
@@ -88,13 +153,16 @@ export default function ReadingHeatmap({ dates }: { dates: string[] }) {
               {weeks.map((week, wi) => {
                 const day = week[dayIdx];
                 if (!day) return <div key={wi} className="w-[11px] h-[11px]" />;
-                const isAfterToday = day.date > today;
+                const isOutOfRange = selectedYear !== null
+                  ? (day.date.getFullYear() !== selectedYear)
+                  : (day.date > today);
+                const isFuture = day.date > today;
                 return (
                   <div
                     key={wi}
-                    className={`w-[11px] h-[11px] ${isAfterToday ? "" : getColor(day.count)}`}
+                    className={`w-[11px] h-[11px] ${isOutOfRange || isFuture ? "" : getColor(day.count)}`}
                     title={
-                      isAfterToday
+                      isOutOfRange || isFuture
                         ? ""
                         : `${day.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}: ${day.count} paper${day.count !== 1 ? "s" : ""}`
                     }
