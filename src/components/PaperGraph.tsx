@@ -5,14 +5,14 @@ import { Paper, PaperConnection } from "@/lib/supabase";
 import { decodeEntities } from "@/lib/entities";
 
 const COLORS = [
-  { fill: "rgba(99,130,255,0.06)", stroke: "rgba(99,130,255,0.20)", dot: "#6382ff" },
-  { fill: "rgba(255,130,99,0.06)", stroke: "rgba(255,130,99,0.20)", dot: "#ff8263" },
-  { fill: "rgba(99,255,170,0.06)", stroke: "rgba(99,255,170,0.20)", dot: "#63ffaa" },
-  { fill: "rgba(255,220,99,0.06)", stroke: "rgba(255,220,99,0.20)", dot: "#ffdc63" },
-  { fill: "rgba(190,99,255,0.06)", stroke: "rgba(190,99,255,0.20)", dot: "#be63ff" },
-  { fill: "rgba(99,210,255,0.06)", stroke: "rgba(99,210,255,0.20)", dot: "#63d2ff" },
-  { fill: "rgba(255,99,180,0.06)", stroke: "rgba(255,99,180,0.20)", dot: "#ff63b4" },
-  { fill: "rgba(180,255,99,0.06)", stroke: "rgba(180,255,99,0.20)", dot: "#b4ff63" },
+  { fill: "rgba(99,130,255,0.06)", stroke: "rgba(99,130,255,0.20)", dot: "#6382ff", dotFaded: "rgba(99,130,255,0.4)", glow: "#6382ff33", clusterDim: "rgba(99,130,255,0.01)", clusterNorm: "rgba(99,130,255,0.03)" },
+  { fill: "rgba(255,130,99,0.06)", stroke: "rgba(255,130,99,0.20)", dot: "#ff8263", dotFaded: "rgba(255,130,99,0.4)", glow: "#ff826333", clusterDim: "rgba(255,130,99,0.01)", clusterNorm: "rgba(255,130,99,0.03)" },
+  { fill: "rgba(99,255,170,0.06)", stroke: "rgba(99,255,170,0.20)", dot: "#63ffaa", dotFaded: "rgba(99,255,170,0.4)", glow: "#63ffaa33", clusterDim: "rgba(99,255,170,0.01)", clusterNorm: "rgba(99,255,170,0.03)" },
+  { fill: "rgba(255,220,99,0.06)", stroke: "rgba(255,220,99,0.20)", dot: "#ffdc63", dotFaded: "rgba(255,220,99,0.4)", glow: "#ffdc6333", clusterDim: "rgba(255,220,99,0.01)", clusterNorm: "rgba(255,220,99,0.03)" },
+  { fill: "rgba(190,99,255,0.06)", stroke: "rgba(190,99,255,0.20)", dot: "#be63ff", dotFaded: "rgba(190,99,255,0.4)", glow: "#be63ff33", clusterDim: "rgba(190,99,255,0.01)", clusterNorm: "rgba(190,99,255,0.03)" },
+  { fill: "rgba(99,210,255,0.06)", stroke: "rgba(99,210,255,0.20)", dot: "#63d2ff", dotFaded: "rgba(99,210,255,0.4)", glow: "#63d2ff33", clusterDim: "rgba(99,210,255,0.01)", clusterNorm: "rgba(99,210,255,0.03)" },
+  { fill: "rgba(255,99,180,0.06)", stroke: "rgba(255,99,180,0.20)", dot: "#ff63b4", dotFaded: "rgba(255,99,180,0.4)", glow: "#ff63b433", clusterDim: "rgba(255,99,180,0.01)", clusterNorm: "rgba(255,99,180,0.03)" },
+  { fill: "rgba(180,255,99,0.06)", stroke: "rgba(180,255,99,0.20)", dot: "#b4ff63", dotFaded: "rgba(180,255,99,0.4)", glow: "#b4ff6333", clusterDim: "rgba(180,255,99,0.01)", clusterNorm: "rgba(180,255,99,0.03)" },
 ];
 
 type Node = {
@@ -172,14 +172,18 @@ function simulate(nodes: Node[], edges: Edge[], W: number, H: number) {
   }
 }
 
-// Get the connected neighbor IDs for a given node
-function getNeighbors(nodeId: string, edges: Edge[]): Set<string> {
-  const neighbors = new Set<string>();
+// Build adjacency map once: nodeId -> Set of neighbor IDs
+function buildAdjacencyMap(edges: Edge[]): Map<string, Set<string>> {
+  const adj = new Map<string, Set<string>>();
   for (const e of edges) {
-    if (e.a === nodeId) neighbors.add(e.b);
-    if (e.b === nodeId) neighbors.add(e.a);
+    let setA = adj.get(e.a);
+    if (!setA) { setA = new Set(); adj.set(e.a, setA); }
+    setA.add(e.b);
+    let setB = adj.get(e.b);
+    if (!setB) { setB = new Set(); adj.set(e.b, setB); }
+    setB.add(e.a);
   }
-  return neighbors;
+  return adj;
 }
 
 export default function PaperGraph({
@@ -199,14 +203,20 @@ export default function PaperGraph({
   const nodesRef = useRef<Node[]>([]);
   const edgesRef = useRef<Edge[]>([]);
   const hoveredRef = useRef<string | null>(null);
+  const needsRenderRef = useRef(true);
   const selectedRef = useRef(selectedPaperId);
-  selectedRef.current = selectedPaperId;
+  if (selectedRef.current !== selectedPaperId) {
+    selectedRef.current = selectedPaperId;
+    needsRenderRef.current = true;
+  }
   const [dims, setDims] = useState({ w: 800, h: 600 });
   const dimsRef = useRef({ w: 800, h: 600 });
   dimsRef.current = dims;
   const panRef = useRef({ x: 0, y: 0, scale: 1 });
   const dragRef = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
   const settledRef = useRef(false);
+  const adjMapRef = useRef<Map<string, Set<string>>>(new Map());
+  const nodeMapRef = useRef<Map<string, Node>>(new Map());
 
   // Resize
   useEffect(() => {
@@ -230,7 +240,10 @@ export default function PaperGraph({
     const { nodes, edges } = buildNodes(papers, connections, dims.w, dims.h);
     nodesRef.current = nodes;
     edgesRef.current = edges;
+    adjMapRef.current = buildAdjacencyMap(edges);
+    nodeMapRef.current = new Map(nodes.map((n) => [n.id, n]));
     settledRef.current = false;
+    needsRenderRef.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [papersKey]);
 
@@ -239,10 +252,10 @@ export default function PaperGraph({
     return { x: (sx - p.x) / p.scale, y: (sy - p.y) / p.scale };
   }, []);
 
+  const sortedNodesRef = useRef<Node[]>([]);
   const findNode = useCallback((sx: number, sy: number): Node | null => {
     const { x, y } = toWorld(sx, sy);
-    // Check larger nodes first (they have bigger hit areas)
-    const sorted = [...nodesRef.current].sort((a, b) => b.degree - a.degree);
+    const sorted = sortedNodesRef.current;
     for (const n of sorted) {
       const r = 4 + n.degree * 1.5;
       const hitR = Math.max(r + 5, 12);
@@ -263,10 +276,15 @@ export default function PaperGraph({
       if (dragRef.current) {
         panRef.current.x = dragRef.current.panX + (e.clientX - dragRef.current.startX);
         panRef.current.y = dragRef.current.panY + (e.clientY - dragRef.current.startY);
+        needsRenderRef.current = true;
         return;
       }
       const node = findNode(sx, sy);
-      hoveredRef.current = node?.id || null;
+      const newHovered = node?.id || null;
+      if (newHovered !== hoveredRef.current) {
+        hoveredRef.current = newHovered;
+        needsRenderRef.current = true;
+      }
       canvas.style.cursor = node ? "pointer" : "grab";
     };
 
@@ -276,6 +294,7 @@ export default function PaperGraph({
       const node = findNode(sx, sy);
       if (node) {
         onSelectPaper(node.id);
+        needsRenderRef.current = true;
       } else {
         dragRef.current = {
           startX: e.clientX, startY: e.clientY,
@@ -285,7 +304,7 @@ export default function PaperGraph({
       }
     };
 
-    const onMouseUp = () => { dragRef.current = null; canvas.style.cursor = "grab"; };
+    const onMouseUp = () => { dragRef.current = null; canvas.style.cursor = "grab"; needsRenderRef.current = true; };
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -312,6 +331,7 @@ export default function PaperGraph({
       p.x = mx - (mx - p.x) * (newScale / p.scale);
       p.y = my - (my - p.y) * (newScale / p.scale);
       p.scale = newScale;
+      needsRenderRef.current = true;
     };
 
     canvas.addEventListener("mousemove", onMouseMove);
@@ -339,6 +359,7 @@ export default function PaperGraph({
     canvas.style.height = dims.h + "px";
     const ctx = canvas.getContext("2d")!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    needsRenderRef.current = true;
   }, [dims]);
 
   // Render loop
@@ -361,13 +382,26 @@ export default function PaperGraph({
 
       const nodes = nodesRef.current;
       const edges = edgesRef.current;
-      const map = new Map(nodes.map((n) => [n.id, n]));
+      const map = nodeMapRef.current;
+      const adjMap = adjMapRef.current;
       const p = panRef.current;
+
+      // Update sorted nodes for hit testing (only when nodes change)
+      if (sortedNodesRef.current.length !== nodes.length) {
+        sortedNodesRef.current = [...nodes].sort((a, b) => b.degree - a.degree);
+      }
+
+      // Skip render if nothing changed and simulation is settled
+      if (settledRef.current && !needsRenderRef.current) {
+        animRef.current = requestAnimationFrame(render);
+        return;
+      }
+      needsRenderRef.current = !settledRef.current;
 
       // Determine highlight state
       const activeId = hoveredRef.current || selectedRef.current;
-      const neighbors = activeId ? getNeighbors(activeId, edges) : null;
-      const isHighlighted = (id: string) => !activeId || id === activeId || neighbors?.has(id);
+      const neighbors = activeId ? adjMap.get(activeId) || null : null;
+      const isHighlighted = (id: string) => !activeId || id === activeId || (neighbors ? neighbors.has(id) : false);
 
       ctx.clearRect(0, 0, W, H);
       ctx.save();
@@ -397,7 +431,7 @@ export default function PaperGraph({
 
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fillStyle = activeId ? color.fill.replace("0.06", "0.01") : color.fill.replace("0.06", "0.03");
+        ctx.fillStyle = activeId ? color.clusterDim : color.clusterNorm;
         ctx.fill();
       });
 
@@ -407,7 +441,7 @@ export default function PaperGraph({
         if (!a || !b) continue;
         const edgeActive = activeId && (e.a === activeId || e.b === activeId);
         ctx.strokeStyle = edgeActive
-          ? COLORS[a.colorIdx].dot.replace(")", ",0.4)").replace("rgb", "rgba")
+          ? COLORS[a.colorIdx].dotFaded
           : activeId ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.07)";
         ctx.lineWidth = edgeActive ? 1.5 : 0.5;
         ctx.beginPath();
@@ -432,13 +466,9 @@ export default function PaperGraph({
 
         // Glow for active nodes
         if ((isSel || isHov) && highlighted) {
-          const grad = ctx.createRadialGradient(n.x, n.y, r, n.x, n.y, r + 15);
-          grad.addColorStop(0, color.replace(")", ",0.25)").replace("rgb", "rgba").replace("#", ""));
-          grad.addColorStop(1, "rgba(0,0,0,0)");
-          // Convert hex to rgba for glow
           ctx.beginPath();
           ctx.arc(n.x, n.y, r + 15, 0, Math.PI * 2);
-          ctx.fillStyle = `${color}33`;
+          ctx.fillStyle = COLORS[n.colorIdx].glow;
           ctx.fill();
         }
 
