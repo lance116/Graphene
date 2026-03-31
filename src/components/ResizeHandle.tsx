@@ -49,11 +49,24 @@ export default function ResizeHandle({
   return (
     <div
       onMouseDown={handleMouseDown}
-      className={`shrink-0 bg-border hover:bg-border-hover active:bg-accent transition-colors ${
+      className={`shrink-0 relative group ${
         direction === "horizontal"
-          ? "w-[3px] cursor-col-resize hover:w-[4px]"
-          : "h-[3px] cursor-row-resize hover:h-[4px]"
+          ? "w-[3px] cursor-col-resize"
+          : "h-[3px] cursor-row-resize"
       }`}
-    />
+    >
+      {/* Visible line */}
+      <div className={`absolute bg-border group-hover:bg-accent group-active:bg-accent transition-colors ${
+        direction === "horizontal"
+          ? "inset-y-0 left-0 w-[1px] group-hover:w-[3px]"
+          : "inset-x-0 top-0 h-[1px] group-hover:h-[3px]"
+      }`} />
+      {/* Wider invisible hit area */}
+      <div className={`absolute ${
+        direction === "horizontal"
+          ? "inset-y-0 -left-3 -right-3"
+          : "inset-x-0 -top-3 -bottom-3"
+      }`} />
+    </div>
   );
 }
