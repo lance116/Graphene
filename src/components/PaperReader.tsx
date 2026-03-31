@@ -18,7 +18,7 @@ export default function PaperReader({ paper }: { paper: Paper }) {
             preference: "dark",
           },
           zoom: {
-            defaultZoomLevel: "fit-width",
+            defaultZoomLevel: "fit-width" as any,
           },
         }}
         className="w-full h-full"

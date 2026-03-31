@@ -92,7 +92,7 @@ function buildNodes(papers: Paper[], connections: PaperConnection[], W: number, 
   const degreeMap = new Map<string, number>();
   const nodeIds = new Set(papers.map((p) => p.id));
   const edges: Edge[] = connections
-    .filter((c) => nodeIds.has(c.paper_a) && nodeIds.has(c.paper_b))
+    .filter((c) => nodeIds.has(c.paper_a) && nodeIds.has(c.paper_b) && (c.strength || 0) >= 0.5)
     .map((c) => ({ a: c.paper_a, b: c.paper_b }));
 
   for (const e of edges) {
@@ -106,8 +106,9 @@ function buildNodes(papers: Paper[], connections: PaperConnection[], W: number, 
     if (!catMap.has(cat)) catMap.set(cat, ci++);
     const colorIdx = catMap.get(cat)! % COLORS.length;
 
-    const angle = (catMap.get(cat)! / Math.max(ci, 1)) * Math.PI * 2 + Math.random() * 0.5;
-    const dist = 150 + Math.random() * 100;
+    const catIdx = catMap.get(cat)!;
+    const angle = (catIdx / Math.max(ci, 1)) * Math.PI * 2 + (Math.random() - 0.5) * 0.8;
+    const dist = 100 + catIdx * 40 + Math.random() * 60;
 
     return {
       id: p.id,
@@ -390,11 +391,11 @@ export default function PaperGraph({
           const d = Math.sqrt((n.x - cx) ** 2 + (n.y - cy) ** 2);
           if (d > maxD) maxD = d;
         }
-        const r = Math.min(Math.max(maxD + 60, 80), 300);
+        const r = Math.min(Math.max(maxD + 30, 50), 180);
 
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fillStyle = activeId ? color.fill.replace("0.06", "0.02") : color.fill;
+        ctx.fillStyle = activeId ? color.fill.replace("0.06", "0.01") : color.fill.replace("0.06", "0.03");
         ctx.fill();
       });
 
@@ -526,7 +527,7 @@ export default function PaperGraph({
           const d = Math.sqrt((n.x - cx) ** 2 + (n.y - cy) ** 2);
           if (d > maxD) maxD = d;
         }
-        const r = Math.min(Math.max(maxD + 60, 80), 300);
+        const r = Math.min(Math.max(maxD + 30, 50), 180);
 
         const fs = Math.max(9, 10 / p.scale);
         ctx.font = `700 ${fs}px JetBrains Mono, monospace`;

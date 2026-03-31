@@ -48,10 +48,12 @@ export async function GET(req: NextRequest) {
   // Sort by user's added_at
   merged.sort((a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime());
 
-  // Get connections
-  const { data: connections } = paperIds.length > 0
-    ? await supabase.from("paper_connections").select("*").or(`paper_a.in.(${paperIds.join(",")}),paper_b.in.(${paperIds.join(",")})`)
-    : { data: [] };
+  // Get connections (only where BOTH papers are in user's library)
+  let connections: any[] = [];
+  if (paperIds.length > 0) {
+    const { data: rawConns } = await supabase.from("paper_connections").select("*").in("paper_a", paperIds).in("paper_b", paperIds);
+    connections = rawConns || [];
+  }
 
   return NextResponse.json({ papers: merged, connections: connections || [] });
 }
