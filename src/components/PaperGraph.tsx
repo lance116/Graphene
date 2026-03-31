@@ -202,6 +202,8 @@ export default function PaperGraph({
   const selectedRef = useRef(selectedPaperId);
   selectedRef.current = selectedPaperId;
   const [dims, setDims] = useState({ w: 800, h: 600 });
+  const dimsRef = useRef({ w: 800, h: 600 });
+  dimsRef.current = dims;
   const panRef = useRef({ x: 0, y: 0, scale: 1 });
   const dragRef = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
   const settledRef = useRef(false);
@@ -348,7 +350,7 @@ export default function PaperGraph({
     const dpr = window.devicePixelRatio || 1;
 
     const render = () => {
-      const W = dims.w, H = dims.h;
+      const W = dimsRef.current.w, H = dimsRef.current.h;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       if (!settledRef.current && simSteps < 300) {
@@ -544,7 +546,8 @@ export default function PaperGraph({
 
     render();
     return () => cancelAnimationFrame(animRef.current);
-  }, [dims]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (papers.length === 0) {
     return (
