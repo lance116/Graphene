@@ -6,9 +6,37 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
+  // PDF proxy — fetch the PDF server-side and stream it back (avoids CORS)
+  // Skips auth — PDFs are from public sources (arXiv, etc.)
+  if (req.nextUrl.searchParams.get("pdf") === "1") {
+    const isArxivPdf = !id.startsWith("web-") && !id.startsWith("bib-");
+    let pdfUrl: string | null = null;
+    if (isArxivPdf) {
+      pdfUrl = `https://arxiv.org/pdf/${id}`;
+    } else {
+      const { data: p } = await supabase.from("papers").select("pdf_url, source_url").eq("id", id).single();
+      pdfUrl = p?.pdf_url || p?.source_url || null;
+    }
+    if (!pdfUrl) return NextResponse.json({ error: "No PDF URL" }, { status: 400 });
+    try {
+      const pdfRes = await fetch(pdfUrl, { signal: AbortSignal.timeout(30000) });
+      if (!pdfRes.ok) return NextResponse.json({ error: "Failed to fetch PDF" }, { status: 502 });
+      const buffer = await pdfRes.arrayBuffer();
+      return new NextResponse(buffer, {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Cache-Control": "public, max-age=3600",
+        },
+      });
+    } catch {
+      return NextResponse.json({ error: "PDF fetch timeout" }, { status: 504 });
+    }
+  }
+
   const user = await getUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { id } = await params;
   const proxy = req.nextUrl.searchParams.get("proxy") === "1";
 
   const { data: paper } = await supabase

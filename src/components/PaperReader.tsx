@@ -41,21 +41,8 @@ function Toolbar() {
 }
 
 export default function PaperReader({ paper }: { paper: Paper }) {
-  const isArxiv = !paper.id.startsWith("web-") && !paper.id.startsWith("bib-");
-  const pdfUrl = isArxiv
-    ? `https://arxiv.org/pdf/${paper.id}`
-    : paper.pdf_url || paper.source_url;
-
-  if (!pdfUrl) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-bg">
-        <div className="text-center">
-          <FileText size={32} className="mx-auto mb-3 text-text-dim" />
-          <p className="text-xs text-text-dim tracking-wider uppercase">No PDF available</p>
-        </div>
-      </div>
-    );
-  }
+  // Proxy all PDFs through our API to avoid CORS issues
+  const pdfUrl = `/api/papers/${encodeURIComponent(paper.id)}/viewer?pdf=1`;
 
   return (
     <div className="w-full h-full relative">
