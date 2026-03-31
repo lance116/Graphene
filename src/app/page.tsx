@@ -112,6 +112,7 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
   // Fetch single paper detail
   const selectPaper = useCallback(async (id: string) => {
     setSelectedPaperId(id);
+    setDetailCollapsed(false);
     try {
       const res = await authFetch(`/api/papers/${encodeURIComponent(id)}`);
       const data = await res.json();
