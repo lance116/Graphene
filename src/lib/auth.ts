@@ -26,12 +26,29 @@ async function isBanned(userId: string, email?: string): Promise<boolean> {
       .maybeSingle();
     if (byEmail) return true;
 
-    // Check by pattern (substring match)
+    // Check by pattern (substring match against email)
     const { data: patterns } = await adminSupabase
       .from("banned_users")
       .select("pattern")
       .not("pattern", "is", null);
     if (patterns?.some((row) => lower.includes(row.pattern))) return true;
+  }
+
+  // Check patterns against username
+  const { data: patterns } = await adminSupabase
+    .from("banned_users")
+    .select("pattern")
+    .not("pattern", "is", null);
+  if (patterns && patterns.length > 0) {
+    const { data: profile } = await adminSupabase
+      .from("profiles")
+      .select("username")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profile?.username) {
+      const uname = profile.username.toLowerCase();
+      if (patterns.some((row) => uname.includes(row.pattern))) return true;
+    }
   }
 
   return false;
