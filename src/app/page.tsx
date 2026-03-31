@@ -557,16 +557,30 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
         {/* Detail panel */}
         {selectedPaper && (
           <>
-            {!detailCollapsed && (
-              <div className="shrink-0 h-full">
-                <ResizeHandle
-                  onResize={(delta) =>
-                    setDetailWidth((w) => Math.max(280, Math.min(700, w - delta)))
-                  }
-                />
-              </div>
-            )}
-            <div className="shrink-0 flex flex-col">
+            <div
+              className="shrink-0 flex flex-col border-l border-border cursor-col-resize hover:border-accent transition-colors"
+              onMouseDown={(e) => {
+                // Only start drag if not clicking a button
+                if ((e.target as HTMLElement).closest("button")) return;
+                e.preventDefault();
+                const startX = e.clientX;
+                const startWidth = detailWidth;
+                const onMouseMove = (ev: MouseEvent) => {
+                  const delta = startX - ev.clientX;
+                  setDetailWidth(Math.max(280, Math.min(700, startWidth + delta)));
+                };
+                const onMouseUp = () => {
+                  document.body.style.cursor = "";
+                  document.body.style.userSelect = "";
+                  window.removeEventListener("mousemove", onMouseMove);
+                  window.removeEventListener("mouseup", onMouseUp);
+                };
+                document.body.style.cursor = "col-resize";
+                document.body.style.userSelect = "none";
+                window.addEventListener("mousemove", onMouseMove);
+                window.addEventListener("mouseup", onMouseUp);
+              }}
+            >
               {view === "list" && readerCollapsed && (
                 <button
                   onClick={() => setReaderCollapsed(false)}
