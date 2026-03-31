@@ -9,9 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@anaralabs/lector": "^3.10.1",
     "@anthropic-ai/sdk": "^0.80.0",
     "@chenglou/pretext": "^0.0.3",
+    "@embedpdf/react-pdf-viewer": "^2.11.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@supabase/supabase-js": "^2.100.1",
