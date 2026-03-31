@@ -28,7 +28,8 @@ export async function chatAboutPaper(
   paper: Record<string, unknown>,
   history: { role: "user" | "assistant"; content: string }[],
   question: string,
-  otherPapers?: { id: string; title: string; categories: string[]; summary: string | null }[]
+  otherPapers?: { id: string; title: string; categories: string[]; summary: string | null }[],
+  paperText?: string
 ): Promise<string> {
   const bsScore = paper.bs_score as Record<string, unknown> | null;
   const bsContext = bsScore
@@ -40,7 +41,9 @@ Why interesting: ${bsScore.interesting_why || "N/A"}`
     : "";
 
   const today = new Date().toISOString().split("T")[0];
-  const systemPrompt = `You are Graphene AI, a research assistant powered by Claude Opus 4.6 by Anthropic. Today's date is ${today}. You are helping a user understand an academic paper. Be concise and precise. You have full context about this paper including its metadata, summary, and ratings. Do NOT use markdown formatting — no **, ##, or other markup. Use plain text only.
+  const systemPrompt = `You are Graphene AI, a research assistant powered by Claude Opus 4.6 by Anthropic. Today's date is ${today}. You are helping a user understand an academic paper. Be concise and precise. You have full context about this paper including its metadata, summary, ratings, and full text. Do NOT use markdown formatting — no **, ##, or other markup. Use plain text only.
+
+When referencing specific claims or passages from the paper, include inline citations using this format: [source: "short quote from paper"]. Keep quotes short (under 15 words) and only quote when it adds value — don't cite every sentence.
 
 Paper: "${paper.title}"
 Authors: ${(paper.authors as string[])?.join(", ") || "Unknown"}
@@ -49,7 +52,7 @@ Published: ${paper.published || "Unknown"}
 
 Abstract: ${paper.abstract || "N/A"}
 
-${paper.summary ? `AI Summary: ${paper.summary}` : ""}${bsContext}${otherPapers && otherPapers.length > 0 ? `\nThe user's library also contains these papers. Reference them when relevant to help the user connect ideas across their reading:\n${otherPapers.map(p => `- "${p.title}" (${p.categories?.join(", ") || "uncategorized"})`).join("\n")}` : ""}`;
+${paper.summary ? `AI Summary: ${paper.summary}` : ""}${bsContext}${otherPapers && otherPapers.length > 0 ? `\nThe user's library also contains these papers. Reference them when relevant to help the user connect ideas across their reading:\n${otherPapers.map(p => `- "${p.title}" (${p.categories?.join(", ") || "uncategorized"})`).join("\n")}` : ""}${paperText ? `\n\n--- FULL PAPER TEXT ---\n${paperText}` : ""}`;
 
   const messages = [
     ...history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),

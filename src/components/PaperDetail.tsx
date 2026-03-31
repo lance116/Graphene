@@ -586,7 +586,27 @@ export default function PaperDetail({
                   <span className="text-[9px] text-text-dim tracking-[0.2em] uppercase block mb-1">
                     {msg.role === "user" ? "You" : "Graphene AI"}
                   </span>
-                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                  <div className="whitespace-pre-wrap">
+                    {msg.role === "assistant" ? (
+                      msg.content.split(/(\[source:\s*"[^"]*"\])/).map((part, pi) => {
+                        const sourceMatch = part.match(/^\[source:\s*"([^"]*)"\]$/);
+                        if (sourceMatch) {
+                          return (
+                            <span
+                              key={pi}
+                              className="inline text-[9px] text-accent/70 border-b border-accent/30 cursor-help"
+                              title={sourceMatch[1]}
+                            >
+                              [{sourceMatch[1]}]
+                            </span>
+                          );
+                        }
+                        return <span key={pi}>{part}</span>;
+                      })
+                    ) : (
+                      msg.content
+                    )}
+                  </div>
                 </div>
               ))}
               {chatLoading && (

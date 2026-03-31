@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@anaralabs/lector": "^3.10.1",
     "@anthropic-ai/sdk": "^0.80.0",
     "@chenglou/pretext": "^0.0.3",
     "@react-three/drei": "^10.7.7",
