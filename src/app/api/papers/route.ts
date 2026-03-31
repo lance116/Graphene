@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { fetchArxivPaper } from "@/lib/arxiv";
 import { getUser } from "@/lib/auth";
+import Anthropic from "@anthropic-ai/sdk";
 
 export const maxDuration = 30;
 
@@ -226,16 +227,67 @@ export async function POST(req: NextRequest) {
 
     const fallbackTitle = pdfTitle || new URL(url).pathname.split("/").pop()?.replace(/\.pdf$/i, "") || "Untitled paper";
 
+    // Extract metadata (title, authors, categories) from PDF text via AI
+    let extractedMeta: { title?: string; authors?: string[]; abstract?: string; categories?: string[]; published?: string } = {};
+    if (isPdf) {
+      try {
+        const pdfParse = await import("pdf-parse");
+        const parse = typeof pdfParse === "function" ? pdfParse : (pdfParse as { default: Function }).default;
+        // Re-fetch from stored copy if available, otherwise use the buffer we already have
+        let textForAI = "";
+        if (storedPdfUrl && storedPdfUrl !== url) {
+          try {
+            const res = await fetch(storedPdfUrl);
+            if (res.ok) {
+              const buf = Buffer.from(await res.arrayBuffer());
+              const data = await (parse as (buf: Buffer) => Promise<{ text: string }>)(buf);
+              textForAI = data.text;
+            }
+          } catch {}
+        }
+        if (textForAI.length < 200) {
+          try {
+            const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+            if (res.ok) {
+              const buf = Buffer.from(await res.arrayBuffer());
+              const data = await (parse as (buf: Buffer) => Promise<{ text: string }>)(buf);
+              textForAI = data.text;
+            }
+          } catch {}
+        }
+        if (textForAI.length > 100) {
+          const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+          const metaMsg = await client.messages.create({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 512,
+            messages: [{
+              role: "user",
+              content: `Extract metadata from this paper. Return ONLY JSON:\n{"title":"...","authors":["..."],"abstract":"one paragraph summary","categories":["pick 2-4 from: AI, Machine Learning, NLP, Computer Vision, Reinforcement Learning, Robotics, Neuroscience, Software Engineering, Systems, Security, Databases, HCI, Optimization, Mathematics, Physics, Biology, Healthcare, Finance, Education, Ethics"],"published":"YYYY-MM-DD or null"}\n\n${textForAI.slice(0, 6000)}`,
+            }],
+          });
+          const metaText = metaMsg.content[0].type === "text" ? metaMsg.content[0].text : "{}";
+          const jsonMatch = metaText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            extractedMeta = JSON.parse(jsonMatch[0]);
+          }
+        }
+      } catch (e) {
+        console.error("AI metadata extraction at upload failed:", e);
+      }
+    }
+
     // Create shared paper
     const { data: inserted, error: insertError } = await supabase
       .from("papers")
       .insert({
         id,
-        title: fallbackTitle,
-        authors: [],
+        title: extractedMeta.title || fallbackTitle,
+        authors: extractedMeta.authors || [],
+        abstract: extractedMeta.abstract || null,
         source_url: url,
         pdf_url: storedPdfUrl,
-        categories: [],
+        categories: extractedMeta.categories || [],
+        published: extractedMeta.published || null,
         is_public: true,
       })
       .select()

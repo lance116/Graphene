@@ -474,11 +474,11 @@ export default function PaperDetail({
             )}
 
             {/* AI Summary */}
-            <div>
-              <h3 className="text-[10px] text-text-dim tracking-[0.2em] uppercase mb-2">
-                AI Summary
-              </h3>
-              {paper.summary ? (
+            {paper.summary && (
+              <div>
+                <h3 className="text-[10px] text-text-dim tracking-[0.2em] uppercase mb-2">
+                  AI Summary
+                </h3>
                 <div
                   className="text-xs text-text leading-relaxed border-l-2 border-border pl-3 summary-content"
                   dangerouslySetInnerHTML={{
@@ -492,12 +492,8 @@ export default function PaperDetail({
                       .join(""),
                   }}
                 />
-              ) : (
-                <div className="text-xs text-text-dim border-l-2 border-border pl-3 py-2">
-                  Click AI Review to generate
-                </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Prerequisites */}
             {(paper as any).prerequisites?.length > 0 && (
