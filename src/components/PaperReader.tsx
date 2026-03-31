@@ -11,6 +11,7 @@ export default function PaperReader({ paper }: { paper: Paper }) {
   return (
     <div className="w-full h-full">
       <PDFViewer
+        key={paper.id}
         config={{
           src: pdfUrl,
           theme: {
