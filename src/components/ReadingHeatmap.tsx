@@ -4,16 +4,7 @@ import { useState } from "react";
 
 export default function ReadingHeatmap({ dates }: { dates: string[] }) {
   const currentYear = new Date().getFullYear();
-
-  // Determine available years from data
-  const years = new Set<number>();
-  years.add(currentYear);
-  for (const d of dates) {
-    years.add(new Date(d).getFullYear());
-  }
-  const sortedYears = [...years].sort((a, b) => b - a);
-
-  const [selectedYear, setSelectedYear] = useState<number | null>(null); // null = trailing 12 months
+  const [viewFullYear, setViewFullYear] = useState(false);
 
   // Count papers read per day
   const counts: Record<string, number> = {};
@@ -25,23 +16,14 @@ export default function ReadingHeatmap({ dates }: { dates: string[] }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  let startDate: Date;
-  let endDate: Date;
+  // Start: Jan 1 of current year, aligned to previous Sunday
+  const jan1 = new Date(currentYear, 0, 1);
+  const jan1Dow = jan1.getDay();
+  const startDate = new Date(jan1);
+  if (jan1Dow > 0) startDate.setDate(startDate.getDate() - jan1Dow);
 
-  if (selectedYear === null) {
-    // Trailing 12 months: end at today, start 52 weeks + padding ago (aligned to Sunday)
-    endDate = new Date(today);
-    startDate = new Date(today);
-    const dayOfWeek = today.getDay();
-    startDate.setDate(startDate.getDate() - 52 * 7 - dayOfWeek);
-  } else {
-    // Full calendar year: Jan 1 to Dec 31, aligned to week boundaries
-    startDate = new Date(selectedYear, 0, 1);
-    // Align to previous Sunday
-    const janDow = startDate.getDay();
-    if (janDow > 0) startDate.setDate(startDate.getDate() - janDow);
-    endDate = new Date(selectedYear, 11, 31);
-  }
+  // End: Dec 31 if viewing full year, otherwise today
+  const endDate = viewFullYear ? new Date(currentYear, 11, 31) : new Date(today);
 
   // Build weeks grid
   const weeks: { date: Date; count: number }[][] = [];
@@ -59,22 +41,12 @@ export default function ReadingHeatmap({ dates }: { dates: string[] }) {
   }
   if (currentWeek.length > 0) weeks.push(currentWeek);
 
-  // Count only dates in the selected range for the total
-  const rangeStart = selectedYear === null
-    ? new Date(today.getFullYear() - 1, today.getMonth(), today.getDate())
-    : new Date(selectedYear, 0, 1);
-  const rangeEnd = selectedYear === null ? today : new Date(selectedYear, 11, 31);
-  const totalInRange = dates.filter((d) => {
-    const dt = new Date(d);
-    return dt >= rangeStart && dt <= rangeEnd;
-  }).length;
+  // Total for current year
+  const totalInYear = dates.filter((d) => new Date(d).getFullYear() === currentYear).length;
 
-  // Color scale based on visible range max
+  // Color scale
   const visibleCounts = Object.entries(counts)
-    .filter(([k]) => {
-      const dt = new Date(k);
-      return dt >= startDate && dt <= endDate;
-    })
+    .filter(([k]) => new Date(k).getFullYear() === currentYear)
     .map(([, v]) => v);
   const maxCount = Math.max(1, ...visibleCounts, 1);
 
@@ -87,7 +59,7 @@ export default function ReadingHeatmap({ dates }: { dates: string[] }) {
     return "bg-emerald-400";
   };
 
-  // Month labels — skip if too close to previous (need ~3 cols gap for text)
+  // Month labels
   const months: { label: string; col: number }[] = [];
   let lastMonth = -1;
   let lastCol = -4;
@@ -109,29 +81,16 @@ export default function ReadingHeatmap({ dates }: { dates: string[] }) {
     <div className="border border-border p-4 mb-4 sm:mb-6">
       <div className="flex items-center justify-between mb-3">
         <p className="text-[10px] text-text-dim tracking-[0.2em] uppercase">
-          {totalInRange} paper{totalInRange !== 1 ? "s" : ""} read {selectedYear === null ? "in the last year" : `in ${selectedYear}`}
+          {totalInYear} paper{totalInYear !== 1 ? "s" : ""} read in {currentYear}
         </p>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setSelectedYear(null)}
-            className={`px-2 py-0.5 text-[9px] tracking-wider transition-colors ${
-              selectedYear === null ? "bg-accent text-bg" : "text-text-dim hover:text-text border border-border"
-            }`}
-          >
-            Last year
-          </button>
-          {sortedYears.map((y) => (
-            <button
-              key={y}
-              onClick={() => setSelectedYear(y)}
-              className={`px-2 py-0.5 text-[9px] tracking-wider transition-colors ${
-                selectedYear === y ? "bg-accent text-bg" : "text-text-dim hover:text-text border border-border"
-              }`}
-            >
-              {y}
-            </button>
-          ))}
-        </div>
+        <button
+          onClick={() => setViewFullYear((v) => !v)}
+          className={`px-2 py-0.5 text-[9px] tracking-wider transition-colors ${
+            viewFullYear ? "bg-accent text-bg" : "text-text-dim hover:text-text border border-border"
+          }`}
+        >
+          {currentYear}
+        </button>
       </div>
       <div className="overflow-x-auto">
         <div className="inline-flex flex-col gap-0.5" style={{ minWidth: "max-content" }}>
@@ -157,18 +116,16 @@ export default function ReadingHeatmap({ dates }: { dates: string[] }) {
               {weeks.map((week, wi) => {
                 const day = week[dayIdx];
                 if (!day) return <div key={wi} className="w-[11px] h-[11px]" />;
-                const isOutOfRange = selectedYear !== null
-                  ? (day.date.getFullYear() !== selectedYear)
-                  : (day.date > today);
                 const isFuture = day.date > today;
+                const isOutsideYear = day.date.getFullYear() !== currentYear;
                 return (
                   <div
                     key={wi}
-                    className={`w-[11px] h-[11px] ${isOutOfRange || isFuture ? "" : getColor(day.count)}`}
+                    className={`w-[11px] h-[11px] ${isFuture || isOutsideYear ? "" : getColor(day.count)}`}
                     title={
-                      isOutOfRange || isFuture
+                      isFuture || isOutsideYear
                         ? ""
-                        : `${day.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}: ${day.count} paper${day.count !== 1 ? "s" : ""}`
+                        : `${day.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}: ${day.count} paper${day.count !== 1 ? "s" : ""}`
                     }
                   />
                 );

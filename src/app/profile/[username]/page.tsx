@@ -459,73 +459,78 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
         {/* Activity Feed */}
         {data.activity && data.activity.length > 0 && (() => {
-          // Group by date+type
-          const groups: { type: string; date: string; month: string; items: ActivityEvent[] }[] = [];
+          // Group by (date, type) — aggregate all same-type events on same day
+          const groupMap = new Map<string, { type: string; date: string; items: ActivityEvent[] }>();
           for (const evt of data.activity) {
             const dateKey = new Date(evt.date).toISOString().slice(0, 10);
-            const last = groups[groups.length - 1];
-            if (last && last.type === evt.type && last.date === dateKey) {
-              last.items.push(evt);
+            const mapKey = `${dateKey}-${evt.type}`;
+            const existing = groupMap.get(mapKey);
+            if (existing) {
+              existing.items.push(evt);
             } else {
-              groups.push({
-                type: evt.type,
-                date: dateKey,
-                month: new Date(evt.date).toLocaleDateString("en-US", { month: "long", year: "numeric" }),
-                items: [evt],
-              });
+              groupMap.set(mapKey, { type: evt.type, date: dateKey, items: [evt] });
             }
           }
-          const visibleGroups = showAllActivity ? groups : groups.slice(0, 5);
-          const hasMore = groups.length > 5;
+          const allGroups = [...groupMap.values()].sort((a, b) => b.date.localeCompare(a.date));
+          const visibleGroups = showAllActivity ? allGroups : allGroups.slice(0, 4);
+          const hasMore = allGroups.length > 4;
 
-          // Insert month headers
-          let lastMonth = "";
+          // Group by month for headers
+          const monthGroups: { month: string; groups: typeof allGroups }[] = [];
+          for (const g of visibleGroups) {
+            const month = new Date(g.date).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+            const last = monthGroups[monthGroups.length - 1];
+            if (last && last.month === month) {
+              last.groups.push(g);
+            } else {
+              monthGroups.push({ month, groups: [g] });
+            }
+          }
+
           return (
             <div className="border border-border mb-4 sm:mb-6">
               <div className="px-4 py-3 border-b border-border">
                 <p className="text-[10px] text-text-dim tracking-[0.2em] uppercase">Activity</p>
               </div>
-              {visibleGroups.map((group, gi) => {
-                const showMonthHeader = group.month !== lastMonth;
-                lastMonth = group.month;
-                const icon = group.type === "read" ? <BookOpen size={12} />
-                  : group.type === "added" ? <Plus size={12} />
-                  : group.type === "starred" ? <Star size={12} />
-                  : <FileText size={12} />;
-                const label = group.type === "read" ? `Read ${group.items.length} paper${group.items.length > 1 ? "s" : ""}`
-                  : group.type === "added" ? `Added ${group.items.length} paper${group.items.length > 1 ? "s" : ""} to library`
-                  : group.type === "starred" ? `Starred ${group.items.length} paper${group.items.length > 1 ? "s" : ""}`
-                  : `Published ${group.items.length} paper${group.items.length > 1 ? "s" : ""}`;
-                const date = new Date(group.items[0].date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                return (
-                  <div key={gi}>
-                    {showMonthHeader && (
-                      <div className="px-4 py-2 border-b border-border/50 bg-surface/30">
-                        <p className="text-[10px] font-medium text-text">{group.month}</p>
-                      </div>
-                    )}
-                    <div className="relative pl-8 pr-4">
-                      <div className="absolute left-[18px] top-0 bottom-0 w-px bg-border" />
-                      <div className="relative py-3">
-                        <div className="absolute left-[-22px] top-3.5 w-5 h-5 bg-surface border border-border flex items-center justify-center text-text-dim">
-                          {icon}
-                        </div>
-                        <div className="flex items-baseline justify-between">
-                          <p className="text-xs text-text font-medium">{label}</p>
-                          <span className="text-[9px] text-text-dim shrink-0 ml-2">{date}</span>
-                        </div>
-                        {group.items.length <= 5 && (
-                          <div className="mt-1 space-y-0.5">
-                            {group.items.map((item, ii) => (
-                              <p key={ii} className="text-[10px] text-text-dim truncate">{decodeEntities(item.title)}</p>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+              {monthGroups.map((mg, mi) => (
+                <div key={mi}>
+                  <div className="px-4 py-2 border-b border-border/50 bg-surface/30">
+                    <p className="text-[10px] font-medium text-text">{mg.month}</p>
                   </div>
-                );
-              })}
+                  <div className="relative pl-8 pr-4">
+                    <div className="absolute left-[18px] top-0 bottom-0 w-px bg-border" />
+                    {mg.groups.map((group, gi) => {
+                      const icon = group.type === "read" ? <BookOpen size={12} />
+                        : group.type === "added" ? <Plus size={12} />
+                        : group.type === "starred" ? <Star size={12} />
+                        : <FileText size={12} />;
+                      const label = group.type === "read" ? `Read ${group.items.length} paper${group.items.length > 1 ? "s" : ""}`
+                        : group.type === "added" ? `Added ${group.items.length} paper${group.items.length > 1 ? "s" : ""} to library`
+                        : group.type === "starred" ? `Starred ${group.items.length} paper${group.items.length > 1 ? "s" : ""}`
+                        : `Published ${group.items.length} paper${group.items.length > 1 ? "s" : ""}`;
+                      const date = new Date(group.items[0].date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                      return (
+                        <div key={gi} className="relative py-3">
+                          <div className="absolute left-[-22px] top-3.5 w-5 h-5 bg-surface border border-border flex items-center justify-center text-text-dim">
+                            {icon}
+                          </div>
+                          <div className="flex items-baseline justify-between">
+                            <p className="text-xs text-text font-medium">{label}</p>
+                            <span className="text-[9px] text-text-dim shrink-0 ml-2">{date}</span>
+                          </div>
+                          {group.items.length <= 5 && (
+                            <div className="mt-1 space-y-0.5">
+                              {group.items.map((item, ii) => (
+                                <p key={ii} className="text-[10px] text-text-dim truncate">{decodeEntities(item.title)}</p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
               {hasMore && !showAllActivity && (
                 <button
                   onClick={() => setShowAllActivity(true)}
