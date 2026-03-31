@@ -77,6 +77,11 @@ export async function PATCH(req: NextRequest) {
   if (body.display_name !== undefined) updates.display_name = body.display_name;
   if (body.bio !== undefined) updates.bio = body.bio;
   if (body.avatar_url !== undefined) updates.avatar_url = body.avatar_url;
+  if (body.location !== undefined) updates.location = body.location;
+  if (body.timezone !== undefined) updates.timezone = body.timezone;
+  if (body.website !== undefined) updates.website = body.website;
+  if (body.twitter !== undefined) updates.twitter = body.twitter;
+  if (body.linkedin !== undefined) updates.linkedin = body.linkedin;
 
   const { data, error } = await supabase
     .from("profiles")
