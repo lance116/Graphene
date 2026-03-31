@@ -87,16 +87,20 @@ export default function ReadingHeatmap({ dates }: { dates: string[] }) {
     return "bg-emerald-400";
   };
 
-  // Month labels
+  // Month labels — skip if too close to previous (need ~3 cols gap for text)
   const months: { label: string; col: number }[] = [];
   let lastMonth = -1;
+  let lastCol = -4;
   weeks.forEach((week, i) => {
     const month = week[0].date.getMonth();
-    if (month !== lastMonth) {
+    if (month !== lastMonth && i - lastCol >= 3) {
       months.push({
         label: week[0].date.toLocaleDateString("en-US", { month: "short" }),
         col: i,
       });
+      lastMonth = month;
+      lastCol = i;
+    } else if (month !== lastMonth) {
       lastMonth = month;
     }
   });
