@@ -73,8 +73,10 @@ export default function PaperGraph({
         : Math.random() * Math.PI * 2;
       const dist = 50 + Math.random() * 50;
 
+      const fullTitle = decodeEntities(p.title);
+      const label = fullTitle.length > 40 ? fullTitle.slice(0, 37) + "..." : fullTitle;
       graph.addNode(p.id, {
-        label: decodeEntities(p.title),
+        label,
         x: Math.cos(angle) * dist + (Math.random() - 0.5) * 30,
         y: Math.sin(angle) * dist + (Math.random() - 0.5) * 30,
         size,
@@ -89,8 +91,8 @@ export default function PaperGraph({
       const key = `${c.paper_a}-${c.paper_b}`;
       if (!graph.hasEdge(key)) {
         graph.addEdgeWithKey(key, c.paper_a, c.paper_b, {
-          color: "rgba(255,255,255,0.08)",
-          size: 0.5,
+          color: "rgba(255,255,255,0.04)",
+          size: 0.3,
         });
       }
     }
@@ -121,34 +123,37 @@ export default function PaperGraph({
     const { default: Sigma } = await import("sigma");
     if (cancelled) return;
 
-    // Run ForceAtlas2 layout (synchronous, fast for <500 nodes)
-    const iterations = Math.min(200, Math.max(50, papers.length * 3));
+    // Run ForceAtlas2 layout
+    const iterations = Math.min(300, Math.max(80, papers.length * 5));
     forceAtlas2.assign(graph, {
       iterations,
       settings: {
-        gravity: 1,
-        scalingRatio: 10,
-        barnesHutOptimize: papers.length > 100,
+        gravity: 5,
+        scalingRatio: 20,
+        barnesHutOptimize: true,
         barnesHutTheta: 0.5,
-        strongGravityMode: false,
-        slowDown: 5,
+        strongGravityMode: true,
+        slowDown: 10,
+        outboundAttractionDistribution: true,
       },
     });
 
     // Prevent overlapping nodes
-    noverlap.assign(graph, 30);
+    noverlap.assign(graph, 50);
 
     // Create Sigma renderer
     const sigma = new Sigma(graph, container, {
       renderEdgeLabels: false,
       labelFont: "JetBrains Mono, monospace",
-      labelSize: 11,
-      labelColor: { color: "#cccccc" },
-      labelRenderedSizeThreshold: 6,
-      defaultEdgeColor: "rgba(255,255,255,0.08)",
+      labelSize: 10,
+      labelColor: { color: "#aaaaaa" },
+      labelRenderedSizeThreshold: 8,
+      defaultEdgeColor: "rgba(255,255,255,0.04)",
       defaultNodeColor: "#666666",
-      stagePadding: 40,
-      zoomToSizeRatioFunction: (camRatio: number) => camRatio,
+      stagePadding: 60,
+      hideEdgesOnMove: true,
+      hideLabelsOnMove: true,
+      labelGridCellSize: 120,
       nodeReducer: (node, data) => {
         const res = { ...data };
         const hovered = hoveredNodeRef.current;
@@ -159,7 +164,7 @@ export default function PaperGraph({
           if (node === activeNode) {
             res.highlighted = true;
             res.zIndex = 2;
-          } else if (graph.hasEdge(activeNode, node) || graph.hasEdge(node, activeNode)) {
+          } else if (graph.neighbors(activeNode).includes(node)) {
             // Neighbor: keep visible
             res.zIndex = 1;
           } else {
@@ -219,6 +224,12 @@ export default function PaperGraph({
     });
 
     sigmaRef.current = sigma;
+
+    // Center camera on graph after a tick
+    requestAnimationFrame(() => {
+      const camera = sigma.getCamera();
+      camera.animatedReset({ duration: 300 });
+    });
     })();
 
     return () => {
