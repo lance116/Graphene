@@ -147,13 +147,13 @@ export default function PaperGraph({
       labelFont: "JetBrains Mono, monospace",
       labelSize: 10,
       labelColor: { color: "#aaaaaa" },
-      labelRenderedSizeThreshold: 8,
+      labelRenderedSizeThreshold: 3,
       defaultEdgeColor: "rgba(255,255,255,0.04)",
       defaultNodeColor: "#666666",
       stagePadding: 60,
-      hideEdgesOnMove: true,
-      hideLabelsOnMove: true,
-      labelGridCellSize: 120,
+      hideEdgesOnMove: false,
+      hideLabelsOnMove: false,
+      labelGridCellSize: 100,
       nodeReducer: (node, data) => {
         const res = { ...data };
         const hovered = hoveredNodeRef.current;
