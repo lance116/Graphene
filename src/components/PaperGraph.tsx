@@ -6,14 +6,15 @@ import { decodeEntities } from "@/lib/entities";
 import type GraphType from "graphology";
 import type SigmaType from "sigma";
 
-const CATEGORY_COLORS: Record<string, string> = {};
+// Desaturated palette for dark backgrounds
 const PALETTE = [
-  "#6382ff", "#ff8263", "#63ffaa", "#ffdc63",
-  "#be63ff", "#63d2ff", "#ff63b4", "#b4ff63",
-  "#ff9563", "#63fff0", "#d463ff", "#fffa63",
+  "#5E9FD6", "#E57373", "#81C784", "#FFB74D",
+  "#a855f7", "#06b6d4", "#f472b6", "#a3e635",
+  "#fb923c", "#2dd4bf", "#c084fc", "#fbbf24",
 ];
-let colorIdx = 0;
 
+const CATEGORY_COLORS: Record<string, string> = {};
+let colorIdx = 0;
 function getCategoryColor(cat: string): string {
   if (!CATEGORY_COLORS[cat]) {
     CATEGORY_COLORS[cat] = PALETTE[colorIdx % PALETTE.length];
@@ -40,7 +41,6 @@ export default function PaperGraph({
   const selectedRef = useRef(selectedPaperId);
   selectedRef.current = selectedPaperId;
 
-  // Build graph data
   const papersKey = useMemo(() => papers.map(p => p.id).sort().join(","), [papers]);
 
   const buildGraph = useCallback(async () => {
@@ -59,40 +59,39 @@ export default function PaperGraph({
     }
     const maxDegree = Math.max(1, ...degreeMap.values());
 
-    // Add nodes
     for (const p of papers) {
       const cats = (p.categories as string[]) || [];
       const cat = cats[0] || "Other";
       const degree = degreeMap.get(p.id) || 0;
-      const size = 4 + (degree / maxDegree) * 10;
+      const size = 5 + (degree / maxDegree) * 12;
 
-      // Initial position: spread by category
-      const catAngle = Object.keys(CATEGORY_COLORS).indexOf(cat);
+      const catKeys = Object.keys(CATEGORY_COLORS);
+      const catAngle = catKeys.indexOf(cat);
       const angle = catAngle >= 0
-        ? (catAngle / Math.max(Object.keys(CATEGORY_COLORS).length, 1)) * Math.PI * 2
+        ? (catAngle / Math.max(catKeys.length, 1)) * Math.PI * 2
         : Math.random() * Math.PI * 2;
-      const dist = 50 + Math.random() * 50;
+      const dist = 80 + Math.random() * 60;
 
       const fullTitle = decodeEntities(p.title);
-      const label = fullTitle.length > 40 ? fullTitle.slice(0, 37) + "..." : fullTitle;
+      const label = fullTitle.length > 50 ? fullTitle.slice(0, 47) + "..." : fullTitle;
+
       graph.addNode(p.id, {
         label,
-        x: Math.cos(angle) * dist + (Math.random() - 0.5) * 30,
-        y: Math.sin(angle) * dist + (Math.random() - 0.5) * 30,
+        x: Math.cos(angle) * dist + (Math.random() - 0.5) * 40,
+        y: Math.sin(angle) * dist + (Math.random() - 0.5) * 40,
         size,
         color: getCategoryColor(cat),
-        category: cat,
         degree,
       });
     }
 
-    // Add edges
     for (const c of validEdges) {
       const key = `${c.paper_a}-${c.paper_b}`;
       if (!graph.hasEdge(key)) {
         graph.addEdgeWithKey(key, c.paper_a, c.paper_b, {
-          color: "rgba(255,255,255,0.04)",
-          size: 0.3,
+          color: "#2a2a3a",
+          size: 0.5,
+          type: "curved",
         });
       }
     }
@@ -100,136 +99,129 @@ export default function PaperGraph({
     return graph;
   }, [papersKey]);
 
-  // Initialize Sigma
   useEffect(() => {
     const container = containerRef.current;
     if (!container || papers.length === 0) return;
 
     let cancelled = false;
 
-    // Clean up previous instance
     if (sigmaRef.current) {
       sigmaRef.current.kill();
       sigmaRef.current = null;
     }
 
     (async () => {
-    const graph = await buildGraph();
-    if (cancelled) return;
-    graphRef.current = graph;
+      const graph = await buildGraph();
+      if (cancelled) return;
+      graphRef.current = graph;
 
-    const { default: forceAtlas2 } = await import("graphology-layout-forceatlas2");
-    const { default: noverlap } = await import("graphology-layout-noverlap");
-    const { default: Sigma } = await import("sigma");
-    if (cancelled) return;
+      const fa2Module = await import("graphology-layout-forceatlas2");
+      const forceAtlas2 = fa2Module.default || fa2Module;
+      const noverlapModule = await import("graphology-layout-noverlap");
+      const noverlap = noverlapModule.default || noverlapModule;
+      const { default: Sigma } = await import("sigma");
+      const { EdgeCurvedArrowProgram } = await import("@sigma/edge-curve");
+      if (cancelled) return;
 
-    // Run ForceAtlas2 layout
-    const iterations = Math.min(300, Math.max(80, papers.length * 5));
-    forceAtlas2.assign(graph, {
-      iterations,
-      settings: {
-        gravity: 5,
-        scalingRatio: 20,
-        barnesHutOptimize: true,
-        barnesHutTheta: 0.5,
-        strongGravityMode: true,
-        slowDown: 10,
-        outboundAttractionDistribution: true,
-      },
-    });
+      // Use inferred settings as base, then override
+      const inferred = forceAtlas2.inferSettings(graph);
+      const iterations = Math.min(300, Math.max(100, papers.length * 5));
+      forceAtlas2.assign(graph, {
+        iterations,
+        settings: {
+          ...inferred,
+          gravity: (inferred.gravity || 1) * 2,
+          barnesHutOptimize: true,
+          slowDown: 8,
+        },
+      });
 
-    // Prevent overlapping nodes
-    noverlap.assign(graph, 50);
+      noverlap.assign(graph, 50);
 
-    // Create Sigma renderer
-    const sigma = new Sigma(graph, container, {
-      renderEdgeLabels: false,
-      labelFont: "JetBrains Mono, monospace",
-      labelSize: 10,
-      labelColor: { color: "#aaaaaa" },
-      labelRenderedSizeThreshold: 3,
-      defaultEdgeColor: "rgba(255,255,255,0.04)",
-      defaultNodeColor: "#666666",
-      stagePadding: 60,
-      hideEdgesOnMove: false,
-      hideLabelsOnMove: false,
-      labelGridCellSize: 100,
-      nodeReducer: (node, data) => {
-        const res = { ...data };
-        const hovered = hoveredNodeRef.current;
-        const selected = selectedRef.current;
-        const activeNode = hovered || selected;
+      const sigma = new Sigma(graph, container, {
+        renderEdgeLabels: false,
+        labelFont: "'JetBrains Mono', monospace",
+        labelSize: 11,
+        labelWeight: "500",
+        labelColor: { color: "#e4e4ed" },
+        labelRenderedSizeThreshold: 5,
+        labelDensity: 0.07,
+        labelGridCellSize: 80,
+        defaultEdgeColor: "#2a2a3a",
+        defaultEdgeType: "curved",
+        defaultNodeColor: "#6b7280",
+        stagePadding: 60,
+        zIndex: true,
+        hideEdgesOnMove: false,
+        hideLabelsOnMove: false,
+        edgeProgramClasses: {
+          curved: EdgeCurvedArrowProgram,
+        },
+        nodeReducer: (node, data) => {
+          const res = { ...data };
+          const activeNode = hoveredNodeRef.current || selectedRef.current;
 
-        if (activeNode) {
+          if (activeNode && activeNode !== node) {
+            const isNeighbor = graph.neighbors(activeNode).includes(node);
+            if (!isNeighbor) {
+              res.color = "#1a1a2a";
+              res.label = "";
+              res.zIndex = 0;
+            } else {
+              res.zIndex = 1;
+            }
+          }
+
           if (node === activeNode) {
             res.highlighted = true;
             res.zIndex = 2;
-          } else if (graph.neighbors(activeNode).includes(node)) {
-            // Neighbor: keep visible
-            res.zIndex = 1;
-          } else {
-            // Dim non-connected nodes
-            res.color = "#333333";
-            res.label = "";
-            res.zIndex = 0;
           }
-        }
 
-        if (node === selected) {
-          res.color = "#ffffff";
-          res.highlighted = true;
-        }
-
-        return res;
-      },
-      edgeReducer: (edge, data) => {
-        const res = { ...data };
-        const hovered = hoveredNodeRef.current;
-        const selected = selectedRef.current;
-        const activeNode = hovered || selected;
-
-        if (activeNode) {
-          const [source, target] = graph.extremities(edge);
-          if (source === activeNode || target === activeNode) {
-            // Highlight connected edge
-            const neighborId = source === activeNode ? target : source;
-            const neighborColor = graph.getNodeAttribute(neighborId, "color");
-            res.color = neighborColor + "88";
-            res.size = 1.5;
-            res.zIndex = 1;
-          } else {
-            res.color = "rgba(255,255,255,0.01)";
-            res.zIndex = 0;
+          if (node === selectedRef.current) {
+            res.color = "#ffffff";
+            res.highlighted = true;
           }
-        }
 
-        return res;
-      },
-    });
+          return res;
+        },
+        edgeReducer: (edge, data) => {
+          const res = { ...data };
+          const activeNode = hoveredNodeRef.current || selectedRef.current;
 
-    // Click: select paper
-    sigma.on("clickNode", ({ node }) => {
-      onSelectPaper(node);
-    });
+          if (activeNode) {
+            const [source, target] = graph.extremities(edge);
+            if (source === activeNode || target === activeNode) {
+              const neighborId = source === activeNode ? target : source;
+              res.color = graph.getNodeAttribute(neighborId, "color");
+              res.size = 2;
+              res.zIndex = 1;
+            } else {
+              res.hidden = true;
+            }
+          }
 
-    // Hover: highlight neighbors
-    sigma.on("enterNode", ({ node }) => {
-      hoveredNodeRef.current = node;
-      sigma.refresh();
-    });
+          return res;
+        },
+      });
 
-    sigma.on("leaveNode", () => {
-      hoveredNodeRef.current = null;
-      sigma.refresh();
-    });
+      sigma.on("clickNode", ({ node }) => onSelectPaper(node));
 
-    sigmaRef.current = sigma;
+      sigma.on("enterNode", ({ node }) => {
+        hoveredNodeRef.current = node;
+        sigma.refresh();
+      });
 
-    // Center camera on graph after a tick
-    requestAnimationFrame(() => {
-      const camera = sigma.getCamera();
-      camera.animatedReset({ duration: 300 });
-    });
+      sigma.on("leaveNode", () => {
+        hoveredNodeRef.current = null;
+        sigma.refresh();
+      });
+
+      sigmaRef.current = sigma;
+
+      // Fit camera
+      requestAnimationFrame(() => {
+        sigma.getCamera().animatedReset({ duration: 300 });
+      });
     })();
 
     return () => {
@@ -242,16 +234,13 @@ export default function PaperGraph({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [papersKey, buildGraph, onSelectPaper]);
 
-  // Update selected state without rebuilding
   useEffect(() => {
-    if (sigmaRef.current) {
-      sigmaRef.current.refresh();
-    }
+    sigmaRef.current?.refresh();
   }, [selectedPaperId]);
 
   if (papers.length === 0) {
     return (
-      <div className="w-full h-full flex items-center justify-center">
+      <div className="w-full h-full flex items-center justify-center" style={{ background: "#0a0a10" }}>
         <div className="text-center">
           <div className="text-6xl mb-4 font-mono text-neutral-700">&lt;/&gt;</div>
           <p className="text-sm tracking-widest uppercase text-neutral-600">No papers yet</p>
@@ -262,6 +251,12 @@ export default function PaperGraph({
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full" style={{ background: "#000000" }} />
+    <div
+      ref={containerRef}
+      className="w-full h-full"
+      style={{
+        background: "radial-gradient(circle at 50% 50%, rgba(99,130,255,0.03) 0%, transparent 70%), linear-gradient(to bottom, #0a0a10, #06060a)",
+      }}
+    />
   );
 }

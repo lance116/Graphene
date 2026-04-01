@@ -15,6 +15,7 @@
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@sigma/edge-curve": "^3.1.0",
+    "@sigma/node-border": "^3.0.0",
     "@supabase/supabase-js": "^2.100.1",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^25.5.0",
