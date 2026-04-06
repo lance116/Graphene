@@ -119,7 +119,7 @@ export default function LoginPage() {
           />
           <button
             onClick={() => { setShowModal(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-            className="flex items-center gap-2 text-xs px-4 sm:px-5 py-2 bg-accent text-bg font-medium tracking-wider hover:bg-text transition-colors"
+            className="flex items-center gap-2 text-xs px-4 sm:px-5 py-2.5 bg-accent text-bg font-medium tracking-wider hover:bg-text transition-colors cursor-pointer"
           >
             Sign in <ArrowRight size={12} />
           </button>
@@ -147,13 +147,13 @@ export default function LoginPage() {
                   href="https://github.com/lance116/Graphene"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-5 sm:px-6 py-3 bg-accent text-bg text-xs font-medium tracking-wider uppercase hover:bg-text transition-colors"
+                  className="flex items-center gap-2 px-5 sm:px-6 py-3 bg-accent text-bg text-xs font-medium tracking-wider uppercase hover:bg-text transition-colors cursor-pointer"
                 >
                   Star on GitHub <ArrowRight size={14} />
                 </a>
                 <button
                   onClick={() => setShowModal(true)}
-                  className="flex items-center gap-2 px-5 sm:px-6 py-3 border border-border text-text text-xs font-medium tracking-wider uppercase hover:bg-surface-2 transition-colors"
+                  className="flex items-center gap-2 px-5 sm:px-6 py-3 border border-border text-text text-xs font-medium tracking-wider uppercase hover:bg-surface-2 transition-colors cursor-pointer"
                 >
                   Sign in
                 </button>
@@ -179,7 +179,7 @@ export default function LoginPage() {
               { icon: Shield, title: "Legitness Score", desc: "AI rates each paper on honesty, rigor, novelty, and credibility. Know what you're reading." },
               { icon: Zap, title: "Track Everything", desc: "Paste any arXiv link or PDF. Mark as read, take notes, sort by date, category, or score." },
             ].map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="border border-border p-5 sm:p-6">
+              <div key={title} className="border border-border p-5 sm:p-6 hover:border-border-hover hover:bg-surface/30 transition-all duration-200">
                 <Icon size={20} className="text-text-dim mb-4" />
                 <h3 className="text-xs font-bold tracking-wider uppercase text-accent mb-2">{title}</h3>
                 <p className="text-[11px] text-text-dim leading-relaxed">{desc}</p>
@@ -210,15 +210,18 @@ export default function LoginPage() {
 
       {/* Sign in Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
+        >
           <div className="w-full max-w-sm bg-surface border border-border p-6 sm:p-8">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-sm font-bold tracking-[0.2em] uppercase text-accent">Sign in</h2>
-              <button onClick={() => setShowModal(false)} className="text-xs text-text-dim hover:text-text text-lg">&times;</button>
+              <button onClick={() => setShowModal(false)} className="text-text-dim hover:text-text text-2xl p-2 -m-2 cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Close">&times;</button>
             </div>
             <button
               onClick={signInWithGoogle}
-              className="w-full flex items-center justify-center gap-3 py-3 bg-bg border border-border text-sm text-text hover:bg-surface-2 transition-colors"
+              className="w-full flex items-center justify-center gap-3 py-3 bg-bg border border-border text-sm text-text hover:bg-surface-2 transition-colors cursor-pointer"
             >
               <svg width="18" height="18" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { supabase } from "@/lib/supabase";
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { getUser } from "@/lib/auth";
 import { checkTokenLimit, trackTokens } from "@/lib/tokens";
 import { checkRateLimit } from "@/lib/ratelimit";
@@ -9,6 +10,10 @@ export const maxDuration = 60;
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export async function POST(
@@ -269,45 +274,44 @@ ${contextText.slice(0, 10000)}`,
 
       const connPromise = (async () => {
         try {
-          const { data: existingPapers } = await supabase
-            .from("papers")
-            .select("id, title, abstract, categories")
-            .neq("id", id)
-            .limit(20);
+          // Generate embedding for this paper
+          const embeddingInput = `${title}\n\n${abstract || ""}`.slice(0, 8000);
+          const embeddingRes = await openai.embeddings.create({
+            model: "text-embedding-3-small",
+            input: embeddingInput,
+          });
+          const embedding = embeddingRes.data[0].embedding;
 
-          if (existingPapers && existingPapers.length > 0 && abstract) {
-            const paperList = existingPapers
-              .map((p, i) => `[${i}] ${p.title} | ${(p.categories as string[])?.join(", ") || ""}`)
-              .join("\n");
+          // Store embedding
+          await supabase.from("papers").update({ embedding: JSON.stringify(embedding) }).eq("id", id);
 
-            const connMsg = await client.messages.create({
-              model: "claude-haiku-4-5-20251001",
-              max_tokens: 512,
-              messages: [{
-                role: "user",
-                content: `Given this new paper and existing papers, identify related ones. Return ONLY JSON array: [{"index":0,"strength":0.8,"relation":"same_topic"}]\nstrength: 0-1, relation: same_topic|similar_method|same_field|extends\nOnly include strength > 0.3\n\nNew: "${title}"\nAbstract: ${abstract.slice(0, 500)}\nCategories: ${(categories as string[])?.join(", ")}\n\nExisting:\n${paperList}`,
-              }],
-            });
-            const connText = connMsg.content[0].type === "text" ? connMsg.content[0].text : "[]";
-            const connMatch = connText.match(/\[[\s\S]*\]/);
-            if (connMatch) {
-              const parsed = JSON.parse(connMatch[0]);
-              const connections = parsed
-                .filter((c: { index: number }) => c.index < existingPapers.length)
-                .map((c: { index: number; strength: number; relation: string }) => ({
-                  paper_a: id,
-                  paper_b: existingPapers[c.index].id,
-                  strength: c.strength,
-                  relation_type: c.relation,
-                }));
-              if (connections.length > 0) {
-                await supabase.from("paper_connections").insert(connections);
-                send("connections", { count: connections.length });
-              }
+          // Find similar papers using cosine similarity via Postgres
+          const { data: matches } = await supabase.rpc("match_papers", {
+            query_embedding: JSON.stringify(embedding),
+            match_threshold: 0.3,
+            match_count: 50,
+          });
+
+          if (matches && matches.length > 0) {
+            // Delete old connections for this paper
+            await supabase.from("paper_connections").delete().or(`paper_a.eq.${id},paper_b.eq.${id}`);
+
+            const connections = matches
+              .filter((m: { id: string }) => m.id !== id)
+              .map((m: { id: string; similarity: number }) => ({
+                paper_a: id,
+                paper_b: m.id,
+                strength: m.similarity,
+                relation_type: "similar",
+              }));
+
+            if (connections.length > 0) {
+              await supabase.from("paper_connections").upsert(connections, { onConflict: "paper_a,paper_b" });
+              send("connections", { count: connections.length });
             }
           }
         } catch (e) {
-          console.error("Connection finding failed:", e);
+          console.error("Embedding/connection finding failed:", e);
         }
       })();
 

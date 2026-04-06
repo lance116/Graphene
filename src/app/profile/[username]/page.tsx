@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, use } from "react";
-import { Star, ArrowLeft, BookOpen, Calendar, Pencil, Camera, FileText, Share2, MapPin, Clock, Link as LinkIcon, Plus, Check, UserPlus, UserMinus } from "lucide-react";
+import { Star, ArrowLeft, BookOpen, Calendar, Pencil, Camera, FileText, Share2, MapPin, Clock, Link as LinkIcon, Plus, Check, UserPlus, UserMinus, Loader2 } from "lucide-react";
 import { humanCategory } from "@/lib/categories";
 import { decodeEntities } from "@/lib/entities";
 import { useAuth } from "@/components/AuthProvider";
@@ -64,6 +64,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const [editError, setEditError] = useState("");
   const [saving, setSaving] = useState(false);
   const [showAllActivity, setShowAllActivity] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -111,8 +112,9 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-bg flex items-center justify-center">
-        <p className="text-text-dim text-xs tracking-wider">Loading...</p>
+      <div className="min-h-screen bg-bg flex flex-col items-center justify-center gap-3">
+        <Loader2 size={20} className="animate-spin text-text-dim" />
+        <p className="text-text-dim text-[10px] tracking-wider uppercase">Loading</p>
       </div>
     );
   }
@@ -229,8 +231,8 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     <div className="min-h-screen bg-bg">
       {/* Header */}
       <header className="h-14 border-b border-border flex items-center px-4 sm:px-6 bg-surface">
-        <Link href="/explore" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <ArrowLeft size={14} className="text-text-dim" />
+        <Link href="/explore" className="flex items-center gap-2 hover:opacity-80 transition-opacity p-1 -m-1">
+          <ArrowLeft size={16} className="text-text-dim" />
           <img src="/graphene.png" alt="Graphene" className="w-6 h-6 invert" />
         </Link>
       </header>
@@ -282,7 +284,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                       value={editForm.display_name}
                       onChange={(e) => setEditForm((f) => ({ ...f, display_name: e.target.value }))}
                       placeholder="Your name"
-                      className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover"
+                      className="w-full bg-bg border border-border px-3 py-2.5 text-sm sm:text-xs text-text focus:outline-none focus:border-border-hover"
                     />
                   </div>
                   <div>
@@ -291,7 +293,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                       type="text"
                       value={editForm.username}
                       onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value.replace(/[^a-z0-9_-]/gi, "").toLowerCase() }))}
-                      className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover"
+                      className="w-full bg-bg border border-border px-3 py-2.5 text-sm sm:text-xs text-text focus:outline-none focus:border-border-hover"
                     />
                   </div>
                   <div>
@@ -301,45 +303,45 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                       onChange={(e) => setEditForm((f) => ({ ...f, bio: e.target.value }))}
                       placeholder="Tell us about yourself"
                       rows={3}
-                      className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover resize-none"
+                      className="w-full bg-bg border border-border px-3 py-2.5 text-sm sm:text-xs text-text focus:outline-none focus:border-border-hover resize-none"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[9px] text-text-dim tracking-[0.2em] uppercase block mb-1">Location</label>
-                      <input type="text" value={editForm.location} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))} placeholder="San Francisco" className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover" />
+                      <input type="text" value={editForm.location} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))} placeholder="San Francisco" className="w-full bg-bg border border-border px-3 py-2.5 text-sm sm:text-xs text-text focus:outline-none focus:border-border-hover" />
                     </div>
                     <div>
                       <label className="text-[9px] text-text-dim tracking-[0.2em] uppercase block mb-1">Timezone</label>
-                      <input type="text" value={editForm.timezone} onChange={(e) => setEditForm((f) => ({ ...f, timezone: e.target.value }))} placeholder="America/Los_Angeles" className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover" />
+                      <input type="text" value={editForm.timezone} onChange={(e) => setEditForm((f) => ({ ...f, timezone: e.target.value }))} placeholder="America/Los_Angeles" className="w-full bg-bg border border-border px-3 py-2.5 text-sm sm:text-xs text-text focus:outline-none focus:border-border-hover" />
                     </div>
                   </div>
                   <div>
                     <label className="text-[9px] text-text-dim tracking-[0.2em] uppercase block mb-1">Website</label>
-                    <input type="text" value={editForm.website} onChange={(e) => setEditForm((f) => ({ ...f, website: e.target.value }))} placeholder="https://yoursite.com" className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover" />
+                    <input type="url" value={editForm.website} onChange={(e) => setEditForm((f) => ({ ...f, website: e.target.value }))} placeholder="https://yoursite.com" className="w-full bg-bg border border-border px-3 py-2.5 text-sm sm:text-xs text-text focus:outline-none focus:border-border-hover" />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[9px] text-text-dim tracking-[0.2em] uppercase block mb-1">X / Twitter</label>
-                      <input type="text" value={editForm.twitter} onChange={(e) => setEditForm((f) => ({ ...f, twitter: e.target.value }))} placeholder="@handle" className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover" />
+                      <input type="text" value={editForm.twitter} onChange={(e) => setEditForm((f) => ({ ...f, twitter: e.target.value }))} placeholder="@handle" className="w-full bg-bg border border-border px-3 py-2.5 text-sm sm:text-xs text-text focus:outline-none focus:border-border-hover" />
                     </div>
                     <div>
                       <label className="text-[9px] text-text-dim tracking-[0.2em] uppercase block mb-1">LinkedIn</label>
-                      <input type="text" value={editForm.linkedin} onChange={(e) => setEditForm((f) => ({ ...f, linkedin: e.target.value }))} placeholder="in/username" className="w-full bg-bg border border-border px-3 py-2 text-xs text-text focus:outline-none focus:border-border-hover" />
+                      <input type="text" value={editForm.linkedin} onChange={(e) => setEditForm((f) => ({ ...f, linkedin: e.target.value }))} placeholder="in/username" className="w-full bg-bg border border-border px-3 py-2.5 text-sm sm:text-xs text-text focus:outline-none focus:border-border-hover" />
                     </div>
                   </div>
                   {editError && <p className="text-[10px] text-red-400">{editError}</p>}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 pt-1">
                     <button
                       onClick={saveProfile}
                       disabled={saving}
-                      className="px-4 py-1.5 bg-accent text-bg text-[10px] tracking-wider uppercase font-medium hover:bg-text disabled:opacity-30 transition-colors"
+                      className="px-5 py-2.5 sm:py-1.5 bg-accent text-bg text-[10px] tracking-wider uppercase font-medium hover:bg-text disabled:opacity-30 transition-colors cursor-pointer"
                     >
                       {saving ? "Saving..." : "Save"}
                     </button>
                     <button
                       onClick={() => setEditing(false)}
-                      className="px-4 py-1.5 border border-border text-text-dim text-[10px] tracking-wider uppercase hover:text-text hover:border-border-hover transition-colors"
+                      className="px-5 py-2.5 sm:py-1.5 border border-border text-text-dim text-[10px] tracking-wider uppercase hover:text-text hover:border-border-hover transition-colors cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -362,16 +364,14 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(window.location.href);
-                        // Brief visual feedback
-                        const btn = document.activeElement as HTMLButtonElement;
-                        const orig = btn.textContent;
-                        btn.textContent = "Copied!";
-                        setTimeout(() => { btn.textContent = orig; }, 1500);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 1500);
                       }}
-                      className="ml-1 text-text-dim hover:text-accent transition-colors text-[10px] tracking-wider uppercase flex items-center gap-1"
+                      className="ml-1 text-text-dim hover:text-accent transition-colors text-[10px] tracking-wider uppercase flex items-center gap-1 p-1 -m-1"
                       title="Share profile"
+                      aria-label="Copy profile link"
                     >
-                      <Share2 size={12} />
+                      {copied ? <Check size={12} className="text-emerald-400" /> : <Share2 size={12} />}
                     </button>
                   </div>
                   <p className="text-[10px] text-text-dim tracking-wider">@{profile.username}</p>
@@ -383,7 +383,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                     <button
                       onClick={handleFollow}
                       disabled={followLoading}
-                      className={`mt-2 flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase transition-colors ${
+                      className={`mt-2 flex items-center gap-1.5 px-4 py-2.5 sm:py-1.5 text-[10px] tracking-wider uppercase transition-colors cursor-pointer ${
                         isFollowing
                           ? "border border-border text-text-dim hover:border-red-500/50 hover:text-red-400"
                           : "bg-accent text-bg hover:bg-text"
@@ -438,7 +438,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-px border border-border mb-4 sm:mb-6 bg-border">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-px border border-border mb-4 sm:mb-6 bg-border animate-fade-in">
           {[
             { label: "Papers", value: stats.total_papers },
             { label: "Read", value: stats.read },
@@ -447,8 +447,8 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             { label: "Stars Received", value: stats.stars_received },
             { label: "Published", value: stats.claimed },
           ].map((s) => (
-            <div key={s.label} className="bg-bg p-3 text-center">
-              <p className="text-sm font-medium text-accent">{s.value}</p>
+            <div key={s.label} className="bg-bg p-3 text-center hover:bg-surface/50 transition-colors">
+              <p className="text-sm font-medium text-accent tabular-nums">{s.value}</p>
               <p className="text-[9px] text-text-dim tracking-wider uppercase mt-0.5">{s.label}</p>
             </div>
           ))}
@@ -548,13 +548,13 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           {profile.is_verified && (
             <button
               onClick={() => setTab("published")}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-[10px] tracking-[0.2em] uppercase transition-colors ${
+              className={`flex items-center gap-1.5 px-4 py-3 text-[10px] tracking-[0.2em] uppercase transition-colors cursor-pointer ${
                 tab === "published"
-                  ? "text-accent border-b border-accent"
+                  ? "text-accent border-b-2 border-accent"
                   : "text-text-dim hover:text-text"
               }`}
             >
-              <FileText size={10} />
+              <FileText size={12} />
               Published ({claimed_papers.length})
             </button>
           )}
@@ -562,14 +562,14 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-[10px] tracking-[0.2em] uppercase transition-colors ${
+              className={`flex items-center gap-1.5 px-4 py-3 text-[10px] tracking-[0.2em] uppercase transition-colors cursor-pointer ${
                 tab === t
-                  ? "text-accent border-b border-accent"
+                  ? "text-accent border-b-2 border-accent"
                   : "text-text-dim hover:text-text"
               }`}
             >
-              {t === "papers" && <BookOpen size={10} />}
-              {t === "stars" && <Star size={10} />}
+              {t === "papers" && <BookOpen size={12} />}
+              {t === "stars" && <Star size={12} />}
               {t} ({t === "papers" ? public_papers.length : starred_papers.length})
             </button>
           ))}
@@ -577,15 +577,21 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
         {/* Paper list */}
         {displayPapers.length === 0 ? (
-          <div className="text-center py-8 text-text-dim text-xs tracking-wider">
-            No {tab === "published" ? "published papers" : tab === "papers" ? "public papers" : "starred papers"} yet
+          <div className="text-center py-12">
+            {tab === "stars" ? <Star size={24} className="mx-auto text-text-dim/40 mb-3" /> : <BookOpen size={24} className="mx-auto text-text-dim/40 mb-3" />}
+            <p className="text-sm text-text-muted mb-1">
+              No {tab === "published" ? "published papers" : tab === "papers" ? "public papers" : "starred papers"} yet
+            </p>
+            <p className="text-xs text-text-dim">
+              {tab === "stars" ? "Stars will appear here when papers are starred." : "Papers marked as public will show up here."}
+            </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2 animate-fade-in">
             {displayPapers.map((paper: any) => (
               <div
                 key={paper.id}
-                className="border border-border p-3 hover:border-border-hover transition-colors"
+                className="border border-border p-3 hover:border-border-hover hover:bg-surface/50 transition-all duration-200"
               >
                 <h3 className="text-xs font-medium text-accent leading-tight">
                   {decodeEntities(paper.title)}

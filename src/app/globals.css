@@ -27,6 +27,12 @@
     overflow-y: auto;
     height: 100%;
     -webkit-overflow-scrolling: touch;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Faster taps on mobile — eliminates 300ms delay */
+  a, button, [role="button"], input, select, textarea {
+    touch-action: manipulation;
   }
 
   ::-webkit-scrollbar {
@@ -70,6 +76,34 @@
   .animate-slide-in {
     animation: slideIn 0.2s ease-out;
   }
+
+  .animate-shimmer {
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+}
+
+/* Focus-visible ring for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--color-border-hover);
+  outline-offset: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-slide-in,
+  .animate-shimmer {
+    animation: none !important;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
 }
 
 @keyframes fadeIn {

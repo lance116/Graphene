@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { getUser } from "@/lib/auth";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   const user = await getUser(req);
@@ -19,13 +26,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "No papers" });
   }
 
-  const results: { id: string; categories?: string[]; bs_score?: any; error?: string }[] = [];
+  const results: { id: string; categories?: string[]; bs_score?: unknown; error?: string }[] = [];
 
+  // Step 1: Re-score categories + BS for each paper
   for (const paper of papers) {
     try {
       // Generate categories
       const catMsg = await client.messages.create({
-        model: "claude-opus-4-6",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 256,
         messages: [
           {
@@ -40,7 +48,7 @@ export async function POST(req: NextRequest) {
 
       // Generate BS + interesting score
       const bsMsg = await client.messages.create({
-        model: "claude-opus-4-6",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 800,
         messages: [
           {
@@ -84,5 +92,77 @@ Abstract: ${(paper.abstract || "").slice(0, 3000)}`,
     }
   }
 
-  return NextResponse.json({ updated: results.length, results });
+  // Step 2: Generate embeddings for all papers
+  const embeddingResults: { id: string; success: boolean }[] = [];
+  // Batch in groups of 20 (OpenAI supports batch embedding)
+  for (let i = 0; i < papers.length; i += 20) {
+    const batch = papers.slice(i, i + 20);
+    try {
+      const inputs = batch.map(p => `${p.title}\n\n${p.abstract || ""}`.slice(0, 8000));
+      const embeddingRes = await openai.embeddings.create({
+        model: "text-embedding-3-small",
+        input: inputs,
+      });
+      for (let j = 0; j < batch.length; j++) {
+        const embedding = embeddingRes.data[j].embedding;
+        await supabase.from("papers").update({ embedding: JSON.stringify(embedding) }).eq("id", batch[j].id);
+        embeddingResults.push({ id: batch[j].id, success: true });
+      }
+    } catch (e) {
+      for (const p of batch) {
+        embeddingResults.push({ id: p.id, success: false });
+      }
+      console.error("Embedding batch failed:", e);
+    }
+  }
+
+  // Step 3: Recompute all connections via cosine similarity
+  // Delete all existing connections
+  await supabase.from("paper_connections").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+
+  let connectionCount = 0;
+  // For each paper with an embedding, find its matches
+  for (const paper of papers) {
+    try {
+      // Get this paper's embedding
+      const { data: paperData } = await supabase
+        .from("papers")
+        .select("embedding")
+        .eq("id", paper.id)
+        .single();
+
+      if (!paperData?.embedding) continue;
+
+      const { data: matches } = await supabase.rpc("match_papers", {
+        query_embedding: paperData.embedding,
+        match_threshold: 0.3,
+        match_count: 50,
+      });
+
+      if (matches && matches.length > 0) {
+        const connections = matches
+          .filter((m: { id: string }) => m.id !== paper.id)
+          .map((m: { id: string; similarity: number }) => ({
+            paper_a: paper.id,
+            paper_b: m.id,
+            strength: m.similarity,
+            relation_type: "similar",
+          }));
+
+        if (connections.length > 0) {
+          await supabase.from("paper_connections").upsert(connections, { onConflict: "paper_a,paper_b" });
+          connectionCount += connections.length;
+        }
+      }
+    } catch (e) {
+      console.error(`Connection computation failed for ${paper.id}:`, e);
+    }
+  }
+
+  return NextResponse.json({
+    updated: results.length,
+    embeddings: embeddingResults.filter(r => r.success).length,
+    connections: connectionCount,
+    results,
+  });
 }

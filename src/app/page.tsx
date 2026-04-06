@@ -347,14 +347,14 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
   return (
     <div className="h-screen flex flex-col overflow-hidden pb-14 sm:pb-0">
       {/* Top bar */}
-      <header className="h-14 border-b border-border flex items-center justify-between px-6 shrink-0 bg-surface">
-        <div className="flex items-center gap-4">
+      <header className="h-14 border-b border-border flex items-center justify-between px-3 sm:px-6 shrink-0 bg-surface">
+        <div className="flex items-center gap-2 sm:gap-4">
           <button
             onClick={() => setView(view === "graph" ? "list" : "graph")}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <img src="/graphene.png" alt="Graphene" className="w-6 h-6 invert" />
-            <span className="text-sm tracking-[0.2em] uppercase text-accent" style={{ fontWeight: 800 }}>
+            <span className="text-sm tracking-[0.2em] uppercase text-accent hidden sm:inline" style={{ fontWeight: 800 }}>
               Graphene
             </span>
           </button>
@@ -370,7 +370,7 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Local search */}
           <div className="relative hidden sm:block">
             <Search
@@ -386,47 +386,50 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
             />
           </div>
 
-          {/* View toggle */}
-          <div className="flex border border-border">
+          {/* View toggle — hidden on mobile, bottom nav handles it */}
+          <div className="hidden sm:flex border border-border">
             <button
               onClick={() => setView("graph")}
-              className={`p-2.5 transition-colors ${
+              className={`p-2.5 transition-colors cursor-pointer ${
                 view === "graph"
                   ? "bg-accent text-bg"
-                  : "text-text-muted hover:text-text"
+                  : "text-text-muted hover:text-text hover:bg-surface-2"
               }`}
-              title="3D Graph"
+              title="Graph view"
+              aria-label="Graph view"
             >
               <LayoutGrid size={16} />
             </button>
             <button
               onClick={() => setView("list")}
-              className={`p-2.5 transition-colors ${
+              className={`p-2.5 transition-colors cursor-pointer ${
                 view === "list"
                   ? "bg-accent text-bg"
-                  : "text-text-muted hover:text-text"
+                  : "text-text-muted hover:text-text hover:bg-surface-2"
               }`}
-              title="List"
+              title="List view"
+              aria-label="List view"
             >
               <List size={16} />
             </button>
           </div>
 
-          {/* Add button */}
+          {/* Add button — icon-only on mobile */}
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-accent text-bg text-xs font-medium tracking-wider uppercase hover:bg-text transition-colors"
+            className="flex items-center gap-2 p-2.5 sm:px-5 sm:py-2.5 bg-accent text-bg text-xs font-medium tracking-wider uppercase hover:bg-text transition-colors cursor-pointer"
+            aria-label="Add paper"
           >
             {adding ? (
-              <Loader2 size={14} className="animate-spin" />
+              <Loader2 size={16} className="animate-spin" />
             ) : (
-              <Plus size={14} />
+              <Plus size={16} />
             )}
-            Add Paper
+            <span className="hidden sm:inline">Add Paper</span>
           </button>
           <Link
             href="/explore"
-            className="flex items-center gap-1.5 px-3 py-2 text-[10px] tracking-wider uppercase text-text-dim hover:text-accent border border-border hover:border-border-hover transition-colors"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 text-[10px] tracking-wider uppercase text-text-dim hover:text-accent border border-border hover:border-border-hover transition-colors"
           >
             <Compass size={12} />
             Explore
@@ -434,7 +437,7 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
           {username && (
             <Link
               href={`/profile/${username}`}
-              className="flex items-center gap-1.5 px-3 py-2 text-[10px] tracking-wider uppercase text-text-dim hover:text-accent border border-border hover:border-border-hover transition-colors"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 text-[10px] tracking-wider uppercase text-text-dim hover:text-accent border border-border hover:border-border-hover transition-colors"
             >
               <User size={12} />
               Profile
@@ -442,8 +445,9 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
           )}
           <button
             onClick={signOut}
-            className="p-2.5 text-text-dim hover:text-text transition-colors"
+            className="p-2.5 text-text-dim hover:text-text transition-colors cursor-pointer"
             title="Sign out"
+            aria-label="Sign out"
           >
             <LogOut size={14} />
           </button>
@@ -639,34 +643,34 @@ function AppContent({ user, signOut, getToken }: { user: { id: string; email?: s
       />
 
       {/* Mobile bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex items-center justify-around py-2 sm:hidden z-40">
+      <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border flex items-center justify-around sm:hidden z-40 pb-[env(safe-area-inset-bottom)]">
         <button
           onClick={() => { setSelectedPaperId(null); setSelectedPaper(null); }}
-          className="flex flex-col items-center gap-0.5 px-3 py-1 text-text-dim"
+          className="flex flex-col items-center gap-0.5 px-4 py-2.5 min-h-[44px] text-text-dim active:text-accent transition-colors"
         >
-          <FileText size={18} />
+          <FileText size={20} />
           <span className="text-[9px] tracking-wider">Papers</span>
         </button>
         <button
           onClick={() => setView(view === "graph" ? "list" : "graph")}
-          className="flex flex-col items-center gap-0.5 px-3 py-1 text-text-dim"
+          className="flex flex-col items-center gap-0.5 px-4 py-2.5 min-h-[44px] text-text-dim active:text-accent transition-colors"
         >
-          <LayoutGrid size={18} />
-          <span className="text-[9px] tracking-wider">Graph</span>
+          <LayoutGrid size={20} />
+          <span className="text-[9px] tracking-wider">{view === "graph" ? "List" : "Graph"}</span>
         </button>
         <Link
           href="/explore"
-          className="flex flex-col items-center gap-0.5 px-3 py-1 text-text-dim"
+          className="flex flex-col items-center gap-0.5 px-4 py-2.5 min-h-[44px] text-text-dim active:text-accent transition-colors"
         >
-          <Compass size={18} />
+          <Compass size={20} />
           <span className="text-[9px] tracking-wider">Explore</span>
         </Link>
         {username && (
           <Link
             href={`/profile/${username}`}
-            className="flex flex-col items-center gap-0.5 px-3 py-1 text-text-dim"
+            className="flex flex-col items-center gap-0.5 px-4 py-2.5 min-h-[44px] text-text-dim active:text-accent transition-colors"
           >
-            <User size={18} />
+            <User size={20} />
             <span className="text-[9px] tracking-wider">Profile</span>
           </Link>
         )}

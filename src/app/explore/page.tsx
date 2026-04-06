@@ -12,6 +12,8 @@ import {
   Calendar,
   Sparkles,
   Flame,
+  Loader2,
+  Library,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -135,9 +137,9 @@ export default function ExplorePage() {
         <div className="flex items-center justify-between px-4 sm:px-6 h-14">
           <Link
             href="/"
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0"
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0 p-1 -m-1"
           >
-            <ArrowLeft size={14} className="text-text-dim" />
+            <ArrowLeft size={16} className="text-text-dim" />
             <img src="/graphene.png" alt="Graphene" className="w-6 h-6 invert" />
             <span
               className="text-sm tracking-[0.2em] uppercase text-accent hidden sm:inline"
@@ -157,47 +159,47 @@ export default function ExplorePage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={tab === "people" ? "Search users..." : "Search recommendations..."}
-              className="w-full bg-bg border border-border pl-9 pr-4 py-2 text-xs text-text focus:outline-none focus:border-border-hover transition-all"
+              placeholder={tab === "people" ? "Search users..." : "Search..."}
+              className="w-full bg-bg border border-border pl-9 pr-4 py-2.5 sm:py-2 text-sm sm:text-xs text-text focus:outline-none focus:border-border-hover transition-all"
             />
           </div>
         </div>
 
         {/* Bottom row: tabs + sort */}
-        <div className="flex items-center justify-between px-4 sm:px-6 pb-2 gap-2">
+        <div className="flex items-center justify-between px-4 sm:px-6 pb-2 gap-2 overflow-x-auto">
           {/* Tabs */}
-          <div className="flex border border-border">
+          <div className="flex border border-border shrink-0">
             <button
               onClick={() => setTab("foryou")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase transition-colors ${
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-[10px] tracking-wider uppercase transition-colors cursor-pointer ${
                 tab === "foryou"
                   ? "bg-accent text-bg"
-                  : "text-text-dim hover:text-text"
+                  : "text-text-dim hover:text-text hover:bg-surface-2"
               }`}
             >
-              <Sparkles size={10} />
+              <Sparkles size={12} />
               For You
             </button>
             <button
               onClick={() => setTab("popular")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase transition-colors ${
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-[10px] tracking-wider uppercase transition-colors cursor-pointer ${
                 tab === "popular"
                   ? "bg-accent text-bg"
-                  : "text-text-dim hover:text-text"
+                  : "text-text-dim hover:text-text hover:bg-surface-2"
               }`}
             >
-              <Flame size={10} />
+              <Flame size={12} />
               Popular
             </button>
             <button
               onClick={() => setTab("people")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-wider uppercase transition-colors ${
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-[10px] tracking-wider uppercase transition-colors cursor-pointer ${
                 tab === "people"
                   ? "bg-accent text-bg"
-                  : "text-text-dim hover:text-text"
+                  : "text-text-dim hover:text-text hover:bg-surface-2"
               }`}
             >
-              <Users size={10} />
+              <Users size={12} />
               People
             </button>
           </div>
@@ -207,25 +209,28 @@ export default function ExplorePage() {
       {/* Content */}
       <div className="max-w-4xl mx-auto p-4 sm:p-6">
         {loading ? (
-          <div className="text-center py-12 text-text-dim text-xs tracking-wider">
-            Loading...
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <Loader2 size={20} className="animate-spin text-text-dim" />
+            <p className="text-text-dim text-[10px] tracking-wider uppercase">Loading</p>
           </div>
         ) : tab === "foryou" ? (
           recommended.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-text-dim text-xs tracking-wider">
-                Add some arXiv papers to your library to get personalized recommendations.
+            <div className="text-center py-16">
+              <Library size={28} className="mx-auto text-text-dim/40 mb-4" />
+              <p className="text-sm text-text-muted mb-1">No recommendations yet</p>
+              <p className="text-xs text-text-dim max-w-xs mx-auto">
+                Add some arXiv papers to your library and we'll suggest related work you might find interesting.
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 animate-fade-in">
               <p className="text-[10px] text-text-dim tracking-wider uppercase mb-2">
                 Based on your library — {recommended.length} recommendations
               </p>
               {recommended.map((rec) => (
                 <div
                   key={rec.id}
-                  className="border border-border p-4 hover:border-border-hover transition-colors"
+                  className="border border-border p-4 hover:border-border-hover hover:bg-surface/50 transition-all duration-200"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
@@ -252,15 +257,16 @@ export default function ExplorePage() {
                           href={rec.source_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-text-dim hover:text-text transition-colors"
+                          className="text-text-dim hover:text-text transition-colors p-1.5 -m-1.5"
+                          aria-label="Open paper in new tab"
                         >
-                          <ExternalLink size={10} />
+                          <ExternalLink size={12} />
                         </a>
                         {user && (
                           <button
                             onClick={() => handleAddToLibrary(rec.source_url, rec.id)}
                             disabled={addingPaper === rec.id || addedPapers.has(rec.id)}
-                            className={`text-[9px] tracking-wider uppercase px-2 py-0.5 border transition-colors ${
+                            className={`text-[10px] tracking-wider uppercase px-3 py-1.5 border transition-colors cursor-pointer ${
                               addedPapers.has(rec.id)
                                 ? "border-accent/50 text-accent"
                                 : "border-border text-text-dim hover:border-accent hover:text-accent"
@@ -278,14 +284,14 @@ export default function ExplorePage() {
           )
         ) : tab === "popular" ? (
           <div>
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
               {(["week", "month", "year", "all"] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => setPeriod(p)}
-                  className={`px-3 py-1.5 text-[10px] tracking-wider uppercase border transition-colors ${
+                  className={`px-4 py-2 text-[10px] tracking-wider uppercase border transition-colors cursor-pointer ${
                     period === p
-                      ? "border-accent text-accent"
+                      ? "border-accent text-accent bg-accent/5"
                       : "border-border text-text-dim hover:text-text hover:border-border-hover"
                   }`}
                 >
@@ -294,15 +300,17 @@ export default function ExplorePage() {
               ))}
             </div>
             {popular.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-text-dim text-xs tracking-wider">No papers found for this period.</p>
+              <div className="text-center py-16">
+                <Flame size={28} className="mx-auto text-text-dim/40 mb-4" />
+                <p className="text-sm text-text-muted mb-1">No papers this period</p>
+                <p className="text-xs text-text-dim">Try a different time range to discover trending research.</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 animate-fade-in">
                 {popular.map((paper, i) => (
                   <div
                     key={paper.id}
-                    className="border border-border p-4 hover:border-border-hover transition-colors"
+                    className="border border-border p-4 hover:border-border-hover hover:bg-surface/50 transition-all duration-200"
                   >
                     <div className="flex items-start gap-3">
                       <span className="text-lg font-bold text-text-dim/30 w-6 text-right shrink-0 mt-0.5">
@@ -331,16 +339,17 @@ export default function ExplorePage() {
                               href={paper.source_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-text-dim hover:text-text transition-colors"
+                              className="text-text-dim hover:text-text transition-colors p-1.5 -m-1.5"
+                              aria-label="Open paper in new tab"
                             >
-                              <ExternalLink size={10} />
+                              <ExternalLink size={12} />
                             </a>
                           )}
                           {user && (
                             <button
                               onClick={() => handleAddToLibrary(paper.source_url || `https://arxiv.org/abs/${paper.id}`, paper.id)}
                               disabled={addingPaper === paper.id || addedPapers.has(paper.id)}
-                              className={`text-[9px] tracking-wider uppercase px-2 py-0.5 border transition-colors ${
+                              className={`text-[10px] tracking-wider uppercase px-3 py-1.5 border transition-colors cursor-pointer ${
                                 addedPapers.has(paper.id)
                                   ? "border-accent/50 text-accent"
                                   : "border-border text-text-dim hover:border-accent hover:text-accent"
@@ -359,20 +368,24 @@ export default function ExplorePage() {
           </div>
         ) : /* People tab */
         people.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-text-dim text-xs tracking-wider">
+          <div className="text-center py-16">
+            <Users size={28} className="mx-auto text-text-dim/40 mb-4" />
+            <p className="text-sm text-text-muted mb-1">
+              {searchDebounced ? "No users found" : "No users yet"}
+            </p>
+            <p className="text-xs text-text-dim">
               {searchDebounced
-                ? "No users match your search"
-                : "No users yet"}
+                ? "Try a different search term."
+                : "Be the first to create a profile."}
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 animate-fade-in">
             {people.map((person) => (
               <Link
                 key={person.id}
                 href={`/profile/${person.username}`}
-                className="border border-border p-3 sm:p-4 hover:border-border-hover transition-colors flex items-center gap-3 sm:gap-4 group block"
+                className="border border-border p-3 sm:p-4 hover:border-border-hover hover:bg-surface/50 transition-all duration-200 flex items-center gap-3 sm:gap-4 group block"
               >
                 {person.avatar_url ? (
                   <img

@@ -166,66 +166,70 @@ export default function AddPaperModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="w-full max-w-2xl bg-surface border border-border animate-fade-in">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-2xl bg-surface border border-border animate-fade-in max-h-[90vh] sm:max-h-[85vh] flex flex-col sm:mx-4">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border shrink-0">
           <h2 className="text-sm font-medium tracking-widest uppercase text-accent">
             Add Paper
           </h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-surface-2 transition-colors"
+            className="p-2 -m-1 hover:bg-surface-2 transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Close"
           >
-            <X size={16} />
+            <X size={18} />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-border">
+        <div className="flex border-b border-border overflow-x-auto shrink-0">
           <button
             onClick={() => setTab("url")}
-            className={`flex-1 px-4 py-3 text-xs tracking-widest uppercase transition-colors ${
+            className={`flex-1 min-w-0 px-3 sm:px-4 py-3 text-[10px] sm:text-xs tracking-widest uppercase transition-colors whitespace-nowrap cursor-pointer ${
               tab === "url"
-                ? "text-accent border-b border-accent"
+                ? "text-accent border-b-2 border-accent"
                 : "text-text-muted hover:text-text"
             }`}
           >
-            Paste URL
+            URL
           </button>
           <button
             onClick={() => setTab("bulk")}
-            className={`flex-1 px-4 py-3 text-xs tracking-widest uppercase transition-colors ${
+            className={`flex-1 min-w-0 px-3 sm:px-4 py-3 text-[10px] sm:text-xs tracking-widest uppercase transition-colors whitespace-nowrap cursor-pointer ${
               tab === "bulk"
-                ? "text-accent border-b border-accent"
+                ? "text-accent border-b-2 border-accent"
                 : "text-text-muted hover:text-text"
             }`}
           >
-            Bulk Import
+            Bulk
           </button>
           <button
             onClick={() => setTab("search")}
-            className={`flex-1 px-4 py-3 text-xs tracking-widest uppercase transition-colors ${
+            className={`flex-1 min-w-0 px-3 sm:px-4 py-3 text-[10px] sm:text-xs tracking-widest uppercase transition-colors whitespace-nowrap cursor-pointer ${
               tab === "search"
-                ? "text-accent border-b border-accent"
+                ? "text-accent border-b-2 border-accent"
                 : "text-text-muted hover:text-text"
             }`}
           >
-            Search arXiv
+            Search
           </button>
           <button
             onClick={() => setTab("bibtex")}
-            className={`flex-1 px-4 py-3 text-xs tracking-widest uppercase transition-colors ${
+            className={`flex-1 min-w-0 px-3 sm:px-4 py-3 text-[10px] sm:text-xs tracking-widest uppercase transition-colors whitespace-nowrap cursor-pointer ${
               tab === "bibtex"
-                ? "text-accent border-b border-accent"
+                ? "text-accent border-b-2 border-accent"
                 : "text-text-muted hover:text-text"
             }`}
           >
-            Import BibTeX
+            BibTeX
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6 overflow-y-auto">
           {tab === "url" ? (
             <div>
               <label className="block text-xs text-text-muted mb-2 tracking-wider uppercase">
