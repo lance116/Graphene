@@ -12,7 +12,7 @@ const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const openai = new OpenAI({
+const getOpenAI = () => new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
@@ -276,7 +276,7 @@ ${contextText.slice(0, 10000)}`,
         try {
           // Generate embedding for this paper
           const embeddingInput = `${title}\n\n${abstract || ""}`.slice(0, 8000);
-          const embeddingRes = await openai.embeddings.create({
+          const embeddingRes = await getOpenAI().embeddings.create({
             model: "text-embedding-3-small",
             input: embeddingInput,
           });

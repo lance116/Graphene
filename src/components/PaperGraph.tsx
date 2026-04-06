@@ -237,10 +237,9 @@ export default function PaperGraph({
           }
 
           if (node === selectedRef.current) {
-            res.color = "#ffffff";
             res.borderColor = "#ffffff";
-            res.highlighted = false;
-            res.forceLabel = true;
+            res.highlighted = true;
+            res.zIndex = 2;
           }
 
           return res;
