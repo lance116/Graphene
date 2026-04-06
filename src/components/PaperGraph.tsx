@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo, useCallback } from "react";
+import { useRef, useEffect, useMemo, useCallback } from "react";
 import { Paper, PaperConnection } from "@/lib/supabase";
 import { decodeEntities } from "@/lib/entities";
 import type GraphType from "graphology";
@@ -41,20 +41,7 @@ export default function PaperGraph({
   const selectedRef = useRef(selectedPaperId);
   selectedRef.current = selectedPaperId;
 
-  const [tooltip, setTooltip] = useState<{
-    x: number;
-    y: number;
-    paper: Paper;
-  } | null>(null);
-  const tooltipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const papersKey = useMemo(() => papers.map(p => p.id).sort().join(","), [papers]);
-
-  const paperMap = useMemo(() => {
-    const map = new Map<string, Paper>();
-    for (const p of papers) map.set(p.id, p);
-    return map;
-  }, [papersKey]);
 
   const buildGraph = useCallback(async () => {
     const { default: Graph } = await import("graphology");
@@ -94,6 +81,7 @@ export default function PaperGraph({
         y: Math.sin(angle) * dist + (Math.random() - 0.5) * 40,
         size,
         color: getCategoryColor(cat),
+        labelColor: "#e4e4ed",
         degree,
       });
     }
@@ -156,7 +144,7 @@ export default function PaperGraph({
         labelFont: "'JetBrains Mono', monospace",
         labelSize: 11,
         labelWeight: "500",
-        labelColor: { color: "#e4e4ed" },
+        labelColor: { attribute: "labelColor" },
         labelRenderedSizeThreshold: 5,
         labelDensity: 0.07,
         labelGridCellSize: 80,
@@ -191,8 +179,8 @@ export default function PaperGraph({
           }
 
           if (node === selectedRef.current) {
-            // Keep original color so the highlight background has contrast with label text
             res.highlighted = true;
+            res.labelColor = "#000000";
             res.zIndex = 2;
           }
 
@@ -218,32 +206,16 @@ export default function PaperGraph({
         },
       });
 
-      sigma.on("clickNode", ({ node }) => {
-        onSelectPaper(node);
-        setTooltip(null);
-      });
+      sigma.on("clickNode", ({ node }) => onSelectPaper(node));
 
       sigma.on("enterNode", ({ node }) => {
         hoveredNodeRef.current = node;
         sigma.refresh();
-
-        if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
-        tooltipTimeoutRef.current = setTimeout(() => {
-          const paper = paperMap.get(node);
-          if (!paper) return;
-          const nodeDisplayData = sigma.getNodeDisplayData(node);
-          if (!nodeDisplayData) return;
-          const viewportPos = sigma.graphToViewport(nodeDisplayData);
-          setTooltip({ x: viewportPos.x, y: viewportPos.y, paper });
-        }, 150);
       });
 
       sigma.on("leaveNode", () => {
         hoveredNodeRef.current = null;
         sigma.refresh();
-        if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
-        tooltipTimeoutRef.current = null;
-        setTooltip(null);
       });
 
       sigmaRef.current = sigma;
@@ -255,8 +227,6 @@ export default function PaperGraph({
 
     return () => {
       cancelled = true;
-      if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
-      setTooltip(null);
       if (sigmaRef.current) {
         sigmaRef.current.kill();
         sigmaRef.current = null;
@@ -282,49 +252,12 @@ export default function PaperGraph({
   }
 
   return (
-    <div className="relative w-full h-full">
-      <div
-        ref={containerRef}
-        className="w-full h-full"
-        style={{
-          background: "radial-gradient(circle at 50% 50%, rgba(99,130,255,0.03) 0%, transparent 70%), linear-gradient(to bottom, #0a0a10, #06060a)",
-        }}
-      />
-      {tooltip && (
-        <div
-          className="absolute pointer-events-none z-50"
-          style={{
-            left: tooltip.x + 14,
-            top: tooltip.y - 10,
-            maxWidth: 280,
-          }}
-        >
-          <div
-            className="rounded-lg px-3 py-2.5 text-xs"
-            style={{
-              background: "#1a1a2e",
-              border: "1px solid rgba(255,255,255,0.08)",
-              color: "#e4e4ed",
-            }}
-          >
-            <div className="font-medium text-sm leading-tight mb-1" style={{ color: "#f0f0f6" }}>
-              {decodeEntities(tooltip.paper.title)}
-            </div>
-            <div className="text-neutral-400 leading-snug">
-              {(tooltip.paper.authors || []).length > 2
-                ? `${tooltip.paper.authors.slice(0, 2).join(", ")} +${tooltip.paper.authors.length - 2} more`
-                : (tooltip.paper.authors || []).join(", ")}
-            </div>
-            {(tooltip.paper.published || (tooltip.paper.categories && tooltip.paper.categories.length > 0)) && (
-              <div className="text-neutral-500 mt-1">
-                {tooltip.paper.published && new Date(tooltip.paper.published).getFullYear()}
-                {tooltip.paper.published && tooltip.paper.categories?.[0] && " \u00b7 "}
-                {tooltip.paper.categories?.[0]}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+    <div
+      ref={containerRef}
+      className="w-full h-full"
+      style={{
+        background: "radial-gradient(circle at 50% 50%, rgba(99,130,255,0.03) 0%, transparent 70%), linear-gradient(to bottom, #0a0a10, #06060a)",
+      }}
+    />
   );
 }
